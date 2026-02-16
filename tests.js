@@ -9,6 +9,7 @@ if (typeof require !== "undefined") {
     const _renderer = require("./renderer.js");
     if (_renderer.renderFloorPlanSVG) globalThis.renderFloorPlanSVG = _renderer.renderFloorPlanSVG;
     if (_renderer.renderComparator) globalThis.renderComparator = _renderer.renderComparator;
+    if (_renderer.renderCourtyardSVG) globalThis.renderCourtyardSVG = _renderer.renderCourtyardSVG;
   } catch (e) {}
   try {
     const _stats = require("./stats.js");
@@ -852,6 +853,183 @@ assert(
   lShapeWindows > noCourtyardWindows,
   "Courtyard configuration has more total window walls than block configuration",
 );
+
+// =============================================================
+// 3.1 — Multi-Stair Hallway Tests (RED → GREEN with layout.js changes)
+// =============================================================
+
+console.log("=== Multi-Stair Hallway Tests ===");
+
+// Single lot, current code, floor 3: should have hallway elements
+const multiStairLayout = generateLayout({
+  lot: "single",
+  stories: 3,
+  stair: "current",
+  ground: "residential",
+});
+const msFloor3 = multiStairLayout.floors[2];
+
+assert(
+  msFloor3.hallways.length > 0,
+  "Single lot, current code, floor 3: has hallway elements connecting stairs",
+);
+
+// Circulation column should be wider for 3-stair floors than 1-stair floors
+const reformLayout = generateLayout({
+  lot: "single",
+  stories: 3,
+  stair: "reform",
+  ground: "residential",
+});
+const refFloor3 = reformLayout.floors[2];
+
+// Get circulation width from staircase x + w (the right edge of the circulation column)
+const msCircRight = Math.max(
+  ...msFloor3.staircases.map((s) => s.x + s.w),
+  ...msFloor3.hallways.map((h) => h.x + h.w),
+);
+const refCircRight = Math.max(
+  ...refFloor3.staircases.map((s) => s.x + s.w),
+);
+assert(
+  msCircRight > refCircRight,
+  `3-stair circulation column (${msCircRight}ft) wider than 1-stair (${refCircRight}ft)`,
+);
+
+// Stairs distributed front/center/rear
+const stairYs = msFloor3.staircases.map((s) => s.y).sort((a, b) => a - b);
+assertEqual(stairYs.length, 3, "Floor 3 has exactly 3 staircases");
+assertApprox(stairYs[0], 0, 1, "First staircase at front (y ≈ 0)");
+const bd = multiStairLayout.lot.buildableDepth;
+assertApprox(
+  stairYs[1],
+  35,
+  5,
+  "Second staircase near center",
+);
+assertApprox(
+  stairYs[2],
+  bd - 10,
+  1,
+  "Third staircase at rear",
+);
+
+// Single lot floor 3 delta >= 15% (the dramatic delta assertion)
+const currF3Livable = msFloor3.units.reduce((s, u) => s + u.sqft, 0);
+const refF3Livable = refFloor3.units.reduce((s, u) => s + u.sqft, 0);
+const deltaPctF3 = ((refF3Livable - currF3Livable) / currF3Livable) * 100;
+assert(
+  deltaPctF3 >= 15,
+  `Single lot floor 3 delta is ${deltaPctF3.toFixed(1)}% — must be >= 15%`,
+);
+
+// Corner lot floor 3 should also have hallways and wider circulation
+const cornerMultiStair = generateLayout({
+  lot: "corner",
+  stories: 3,
+  stair: "current",
+  ground: "residential",
+});
+const cornerF3 = cornerMultiStair.floors[2];
+assert(
+  cornerF3.hallways.length > 0,
+  "Corner lot, current code, floor 3: has hallway elements",
+);
+
+// Area conservation still holds with wider circulation
+const msUnitArea = msFloor3.units.reduce((s, u) => s + u.sqft, 0);
+const msStairArea = msFloor3.staircases.reduce((s, st) => s + st.w * st.d, 0);
+const msHallArea = msFloor3.hallways.reduce((s, h) => s + h.w * h.d, 0);
+const msTotalBuildable = multiStairLayout.lot.buildableWidth * multiStairLayout.lot.buildableDepth;
+assertApprox(
+  msUnitArea + msStairArea + msHallArea,
+  msTotalBuildable,
+  20,
+  "Multi-stair floor 3: areas sum to buildable area",
+);
+
+// No overlaps on multi-stair floor
+const msAllElements = [...msFloor3.units, ...msFloor3.staircases, ...msFloor3.hallways];
+for (let i = 0; i < msAllElements.length; i++) {
+  for (let j = i + 1; j < msAllElements.length; j++) {
+    assert(
+      !overlaps(msAllElements[i], msAllElements[j]),
+      `Multi-stair floor 3: elements ${i} and ${j} must not overlap`,
+    );
+  }
+}
+
+// =============================================================
+// 3.2 — Courtyard SVG Renderer Tests (RED → GREEN with renderer.js changes)
+// =============================================================
+
+console.log("=== Courtyard SVG Renderer Tests ===");
+
+const cyLayout = generateCourtyardLayout({
+  shape: "L",
+  stories: 3,
+  ground: "residential",
+});
+const cySvg = renderCourtyardSVG(cyLayout, 1); // floor 2 (0-indexed)
+
+// SVG is produced
+assert(cySvg.includes("<svg"), "renderCourtyardSVG produces SVG element");
+
+// Contains courtyard rect
+assert(
+  cySvg.includes('data-type="courtyard"'),
+  "Courtyard SVG has courtyard rect",
+);
+
+// Contains correct number of unit rects (2 segments × 2 units each for L-shape)
+const cyUnitCount = countDataType(cySvg, "unit");
+const expectedCyUnits = cyLayout.segments.reduce(
+  (s, seg) => s + seg.floors[1].units.length,
+  0,
+);
+assertEqual(
+  cyUnitCount,
+  expectedCyUnits,
+  `Courtyard SVG has ${expectedCyUnits} unit rects`,
+);
+
+// Contains staircase rects (1 per segment)
+const cyStairCount = countDataType(cySvg, "staircase");
+const expectedCyStairs = cyLayout.segments.reduce(
+  (s, seg) => s + seg.floors[1].staircases.length,
+  0,
+);
+assertEqual(
+  cyStairCount,
+  expectedCyStairs,
+  `Courtyard SVG has ${expectedCyStairs} staircase rects`,
+);
+
+// =============================================================
+// 3.3 — URL State buildingType Tests (RED → GREEN with state.js changes)
+// =============================================================
+
+console.log("=== URL State buildingType Tests ===");
+
+// Roundtrip for buildingType
+const btConfig = {
+  lot: "single",
+  stories: 3,
+  stair: "current",
+  ground: "residential",
+  buildingType: "L",
+};
+const btHash = encodeConfigToHash(btConfig);
+const btDecoded = decodeHashToConfig(btHash);
+assertEqual(btDecoded.buildingType, "L", "Roundtrip: buildingType L");
+
+// Default buildingType
+const btDefaults = decodeHashToConfig("");
+assertEqual(btDefaults.buildingType, "standard", "Default buildingType is standard");
+
+// Invalid buildingType falls back
+const btBad = decodeHashToConfig("#building=X");
+assertEqual(btBad.buildingType, "standard", "Invalid buildingType falls back to standard");
 
 // =============================================================
 

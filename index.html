@@ -524,6 +524,7 @@
   </div>
 
   <div id="floorplan-tab">
+    <div class="narrative-headline" id="narrative-headline"></div>
     <div class="floor-selector" id="floor-selector"></div>
     <div class="floor-note" id="floor-note"></div>
 
@@ -583,15 +584,17 @@
   <script src="courtyard.js"></script>
   <script>
     // --- App State ---
-    let currentFloorIndex = 0;
+    let currentFloorIndex = 2; // Default to floor 3 (0-indexed) where reform impact is visible
     let currentConfig = decodeHashToConfig(window.location.hash);
 
     // --- DOM refs ---
     const lotSelect = document.getElementById('lot-select');
     const storiesGroup = document.getElementById('stories-group');
     const groundSelect = document.getElementById('ground-select');
+    const buildingTypeSelect = document.getElementById('building-type-select');
     const floorSelector = document.getElementById('floor-selector');
     const floorNote = document.getElementById('floor-note');
+    const narrativeHeadline = document.getElementById('narrative-headline');
     const currentSvgEl = document.getElementById('current-svg');
     const reformSvgEl = document.getElementById('reform-svg');
     const deltaPanel = document.getElementById('delta-panel');
@@ -599,11 +602,14 @@
     const perFloorBody = document.querySelector('#per-floor-table tbody');
     const wholeBuildingBody = document.querySelector('#whole-building-table tbody');
     const tooltip = document.getElementById('tooltip');
+    const currentPanelLabel = document.querySelector('#current-panel h3');
+    const reformPanelLabel = document.querySelector('#reform-panel h3');
 
     // --- Initialize controls from config ---
     function syncControlsToConfig() {
       lotSelect.value = currentConfig.lot;
       groundSelect.value = currentConfig.ground;
+      buildingTypeSelect.value = currentConfig.buildingType || 'standard';
       storiesGroup.querySelectorAll('button').forEach(b => {
         b.classList.toggle('active', b.dataset.value === String(currentConfig.stories));
       });
@@ -612,6 +618,9 @@
     // --- Render everything ---
     function render() {
       const config = { lot: currentConfig.lot, stories: currentConfig.stories, ground: currentConfig.ground };
+      const buildingType = currentConfig.buildingType || 'standard';
+      const isCourtyardMode = buildingType === 'L' || buildingType === 'U';
+
       const current = generateLayout({ ...config, stair: 'current' });
       const reform = generateLayout({ ...config, stair: 'reform' });
 
@@ -633,80 +642,145 @@
         floorSelector.appendChild(btn);
       }
 
-      // Floor note
-      const currFloor = current.floors[currentFloorIndex];
-      const refFloor = reform.floors[currentFloorIndex];
-      if (currentFloorIndex < 2 && currentConfig.stories > 2) {
-        floorNote.textContent = 'Floors 1-2: Same under both codes (single stair allowed below 3rd floor)';
+      // Narrative headline
+      if (isCourtyardMode) {
+        const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
+        narrativeHeadline.innerHTML = `Single stair reform enables <strong>${shapeLabel} courtyard buildings</strong> with apartments facing shared open space for more natural light.`;
       } else if (currentFloorIndex >= 2) {
-        floorNote.textContent = 'Floor 3+: Current code requires multiple staircases — this is where reform makes the difference';
+        const currFloorTemp = current.floors[currentFloorIndex];
+        const refFloorTemp = reform.floors[currentFloorIndex];
+        const cLiv = currFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
+        const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
+        const dArea = Math.round(rLiv - cLiv);
+        const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
+        narrativeHeadline.innerHTML = `Current code requires 3 staircases above the 2nd floor, wasting <strong>${dArea} sf (+${dPct}%)</strong> of livable space per floor.`;
+      } else if (currentFloorIndex < 2 && currentConfig.stories > 2) {
+        narrativeHeadline.innerHTML = 'Floors 1-2 are the same under both codes. <strong>Select Floor 3</strong> to see the difference.';
+      } else {
+        narrativeHeadline.innerHTML = '';
+      }
+
+      // Floor note
+      if (!isCourtyardMode) {
+        if (currentFloorIndex < 2 && currentConfig.stories > 2) {
+          floorNote.textContent = 'Floors 1-2: Same under both codes (single stair allowed below 3rd floor)';
+        } else if (currentFloorIndex >= 2) {
+          floorNote.textContent = 'Floor 3+: Current code requires multiple staircases — this is where reform makes the difference';
+        } else {
+          floorNote.textContent = '';
+        }
       } else {
         floorNote.textContent = '';
       }
 
-      // SVG
-      currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
-      reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
+      if (isCourtyardMode) {
+        // --- Courtyard mode: standard block on left, courtyard on right ---
+        const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
+        currentPanelLabel.textContent = 'Standard Block (Reform)';
+        reformPanelLabel.textContent = `Single Stair Reform (${shapeLabel} Courtyard)`;
 
-      // Deltas for this floor
-      const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
-      const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
-      const deltaArea = refLivable - currLivable;
-      const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
-      const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
-      const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
-      const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
-      const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+        // Left panel: standard reform layout
+        currentSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
 
-      deltaPanel.innerHTML = '';
-      function addDelta(value, unit, label) {
-        const sign = value > 0 ? '+' : value === 0 ? '' : '';
-        const d = document.createElement('div');
-        d.className = 'delta-item';
-        d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
-        deltaPanel.appendChild(d);
+        // Right panel: courtyard layout
+        const cyLayout = generateCourtyardLayout({ shape: buildingType, stories: currentConfig.stories, ground: currentConfig.ground });
+        reformSvgEl.innerHTML = renderCourtyardSVG(cyLayout, currentFloorIndex);
+
+        // Delta: compare courtyard total livable vs standard reform
+        const refFloor = reform.floors[currentFloorIndex];
+        const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+        const cyLivable = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].livableSqft, 0);
+        const cyWindows = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.reduce((us, u) => us + u.windowWalls.length, 0), 0);
+        const refWindows = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+
+        deltaPanel.innerHTML = '';
+        function addDelta(value, unit, label) {
+          const sign = value > 0 ? '+' : value === 0 ? '' : '';
+          const d = document.createElement('div');
+          d.className = 'delta-item';
+          d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
+          deltaPanel.appendChild(d);
+        }
+        addDelta(Math.round(cyLivable - refLivable), ' sf', 'Livable Area');
+        addDelta(cyWindows - refWindows, '', 'Window Walls');
+        addDelta(Math.round(cyLayout.courtyard.area), ' sf', 'Courtyard Space');
+
+        // Stats tables for courtyard mode (simplified)
+        statsFloorNum.textContent = currentFloorIndex + 1;
+        perFloorBody.innerHTML = '';
+        wholeBuildingBody.innerHTML = '';
+
+      } else {
+        // --- Standard mode ---
+        currentPanelLabel.textContent = 'Current Code';
+        reformPanelLabel.textContent = 'Single Stair Reform';
+
+        // SVG
+        currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
+        reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
+
+        // Deltas for this floor
+        const currFloor = current.floors[currentFloorIndex];
+        const refFloor = reform.floors[currentFloorIndex];
+        const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
+        const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+        const deltaArea = refLivable - currLivable;
+        const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
+        const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+        const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+        const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+        const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+
+        deltaPanel.innerHTML = '';
+        function addDelta(value, unit, label) {
+          const sign = value > 0 ? '+' : value === 0 ? '' : '';
+          const d = document.createElement('div');
+          d.className = 'delta-item';
+          d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
+          deltaPanel.appendChild(d);
+        }
+        addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
+        addDelta(Number(deltaPct), '%', 'More Space');
+        addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
+        addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
+        addDelta(refBR - currBR, '', 'Bedrooms');
+
+        // Stats tables
+        const fullStats = computeStats(current, reform);
+        statsFloorNum.textContent = currentFloorIndex + 1;
+
+        // Per-floor table
+        const pf = fullStats.perFloor[currentFloorIndex];
+        perFloorBody.innerHTML = '';
+        function addStatRow(table, label, curr, ref, diff, suffix) {
+          const tr = document.createElement('tr');
+          const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
+          const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '\u2014' : `${diff}${suffix || ''}`;
+          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
+          table.appendChild(tr);
+        }
+        addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
+        addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
+        addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
+        addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
+        addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
+        addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
+        addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
+
+        // Whole-building table
+        wholeBuildingBody.innerHTML = '';
+        const wb = fullStats.wholeBuilding;
+        function addWbRow(label, curr, ref) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
+          wholeBuildingBody.appendChild(tr);
+        }
+        addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
+        addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
+        addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
+        addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
+        addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
       }
-      addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
-      addDelta(Number(deltaPct), '%', 'More Space');
-      addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
-      addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
-      addDelta(refBR - currBR, '', 'Bedrooms');
-
-      // Stats tables
-      const fullStats = computeStats(current, reform);
-      statsFloorNum.textContent = currentFloorIndex + 1;
-
-      // Per-floor table
-      const pf = fullStats.perFloor[currentFloorIndex];
-      perFloorBody.innerHTML = '';
-      function addStatRow(table, label, curr, ref, diff, suffix) {
-        const tr = document.createElement('tr');
-        const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
-        const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '—' : `${diff}${suffix || ''}`;
-        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
-        table.appendChild(tr);
-      }
-      addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
-      addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
-      addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
-      addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
-      addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
-      addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
-      addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
-
-      // Whole-building table
-      wholeBuildingBody.innerHTML = '';
-      const wb = fullStats.wholeBuilding;
-      function addWbRow(label, curr, ref) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
-        wholeBuildingBody.appendChild(tr);
-      }
-      addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
-      addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
-      addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
-      addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
-      addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
 
       // Update URL hash
       window.history.replaceState(null, '', encodeConfigToHash(currentConfig));
@@ -777,6 +851,11 @@
 
     groundSelect.addEventListener('change', () => {
       currentConfig.ground = groundSelect.value;
+      render();
+    });
+
+    buildingTypeSelect.addEventListener('change', () => {
+      currentConfig.buildingType = buildingTypeSelect.value;
       render();
     });
 

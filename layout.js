@@ -12,6 +12,7 @@ const REAR_SETBACK = 30;
 const STAIR_W = 4;
 const STAIR_D = 10;
 const HALLWAY_W = 5;
+const MULTI_STAIR_W = 6; // Wider circulation zone for 3-staircase floors (landing + fire doors + corridors)
 
 function generateLayout(config) {
   const { lot: lotType, stories, stair, ground } = config;
@@ -48,7 +49,7 @@ function generateLayout(config) {
           needsHallway = true;
         } else {
           staircaseCount = 3;
-          needsHallway = false;
+          needsHallway = true;
         }
       }
     }
@@ -82,6 +83,10 @@ function generateFloor(params) {
 
   if (lotType === "double") {
     return generateDoubleFloor(lot, floorLevel);
+  }
+
+  if (needsHallway && staircaseCount === 3) {
+    return generateMultiStairFloor(lot, lotType, floorLevel);
   }
 
   return generateStandardFloor(lot, lotType, staircaseCount, floorLevel);
@@ -281,6 +286,72 @@ function generateCommercialFloor(lot, lotType, staircaseCount, needsHallway) {
     hallways,
     circulationSqft: stairArea,
     livableSqft: sqft,
+  };
+}
+
+// Single/corner lot with 3 staircases: wider circulation zone with hallways connecting stairs
+function generateMultiStairFloor(lot, lotType, floorLevel) {
+  const bw = lot.buildableWidth;
+  const bd = lot.buildableDepth;
+  const halfD = bd / 2;
+  const isCorner = lotType === "corner";
+  const circW = MULTI_STAIR_W;
+
+  // 3 staircases distributed front/center/rear within circulation column
+  const staircases = [
+    { x: 0, y: 0, w: circW, d: STAIR_D, type: "interior" },
+    { x: 0, y: STAIR_D + 25, w: circW, d: STAIR_D, type: "interior" },
+    { x: 0, y: bd - STAIR_D, w: circW, d: STAIR_D, type: "gangway" },
+  ];
+
+  // Hallways fill the gaps between stairs in the circulation column
+  const hallways = [
+    { x: 0, y: STAIR_D, w: circW, d: 25 },
+    { x: 0, y: STAIR_D + 25 + STAIR_D, w: circW, d: bd - (3 * STAIR_D) - 25 },
+  ];
+
+  // Units occupy the right portion
+  const unitW = bw - circW;
+  const unitA = { x: circW, y: 0, w: unitW, d: halfD };
+  const unitB = { x: circW, y: halfD, w: unitW, d: halfD };
+
+  const frontWindows = ["north"];
+  const backWindows = ["south"];
+  if (isCorner) {
+    frontWindows.push("east");
+    backWindows.push("east");
+  }
+
+  // Livable area = unit rects + dead zone in circulation column allocated to units
+  const circArea = circW * bd;
+  const stairPhysicalArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
+  const hallPhysicalArea = hallways.reduce((s, h) => s + h.w * h.d, 0);
+  const deadZone = circArea - stairPhysicalArea - hallPhysicalArea;
+  const deadPerUnit = deadZone / 2;
+
+  const unitASqft = unitA.w * unitA.d + deadPerUnit;
+  const unitBSqft = unitB.w * unitB.d + deadPerUnit;
+
+  const units = [
+    {
+      id: "A", x: unitA.x, y: unitA.y, w: unitA.w, d: unitA.d,
+      sqft: unitASqft, bedrooms: estimateBedrooms(unitASqft, frontWindows.length),
+      windowWalls: frontWindows, position: "front", type: "residential",
+    },
+    {
+      id: "B", x: unitB.x, y: unitB.y, w: unitB.w, d: unitB.d,
+      sqft: unitBSqft, bedrooms: estimateBedrooms(unitBSqft, backWindows.length),
+      windowWalls: backWindows, position: "rear", type: "residential",
+    },
+  ];
+
+  return {
+    level: floorLevel,
+    units,
+    staircases,
+    hallways,
+    circulationSqft: stairPhysicalArea + hallPhysicalArea,
+    livableSqft: units.reduce((s, u) => s + u.sqft, 0),
   };
 }
 
