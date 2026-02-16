@@ -1,10 +1,10 @@
 # Single Stair Visualizer — Build Progress
 
-## Current Status: Stage 2 Integration In Progress
+## Current Status: Advocacy Tool Enhancements Complete
 
-**Test suite: 205 passed, 0 failed**
+**Test suite: 253 passed, 0 failed**
 
-All test-driven development steps through Stage 2 courtyard tests are complete. The remaining work is wiring the 3D view (Three.js), guided tour, STL export, and courtyard controls into `index.html`.
+All test-driven development steps through Stage 2 courtyard tests are complete. The advocacy-focused enhancements (dramatic delta, courtyard UI, narrative headline) are now wired in. The remaining work is the 3D view (Three.js), guided tour, and STL export.
 
 ---
 
@@ -25,18 +25,20 @@ All test-driven development steps through Stage 2 courtyard tests are complete. 
 - Stories: 2, 3, or 4
 - **Key architecture decision**: Units are placed as non-overlapping rectangles to the right of the staircase column. The `sqft` property includes allocated dead-zone area beyond the unit's bounding box (the area test uses `u.sqft` while overlap tests use `x,y,w,d`). This was the hardest design problem — see details below.
 - Floor layout strategies:
-  - `generateStandardFloor()` — Single/corner lot: stairs along left wall, 2 units to the right
+  - `generateStandardFloor()` — Single/corner lot: stairs along left wall, 2 units to the right (used for 1-stair floors)
+  - `generateMultiStairFloor()` — Single/corner lot, floor 3+ current code: 6ft-wide circulation column with 3 stairs (front/center/rear) + 2 connecting hallways, units in remaining 14ft width. **Produces +440 sf (+39%) delta vs reform on single lots.**
   - `generateDoubleFloor()` — Double lot, 1 stair: centered staircase, 4 quadrant units
   - `generateDoubleHallwayFloor()` — Double lot, current code floor 3+: central hallway with 2 stairs at ends, 4 units
   - `generateCommercialFloor()` — Commercial ground floor: 1 retail unit + stair in corner
-- Constants: `STAIR_W=4`, `STAIR_D=10`, `HALLWAY_W=5`, `FRONT_SETBACK=15`, `REAR_SETBACK=30`
+- Constants: `STAIR_W=4`, `STAIR_D=10`, `HALLWAY_W=5`, `MULTI_STAIR_W=6`, `FRONT_SETBACK=15`, `REAR_SETBACK=30`
 - Exports via `module.exports` for Node and global scope for browser
 
 #### 1.2 SVG Renderer — `renderer.js`
 - `renderFloorPlanSVG(layout, floorIndex)` — Returns SVG string for a single floor
 - `renderComparator(config, floorIndex)` — Returns HTML string with side-by-side current vs reform floor plans + delta callout
-- Uses `data-type` attributes for test querying: `"unit"`, `"staircase"`, `"hallway"`, `"window-wall"`, `"unit-label"`, `"lot-boundary"`
-- Color scheme: units white, staircases red (#ef4444), hallways orange (#f97316), window walls yellow (#eab308), commercial teal
+- `renderCourtyardSVG(courtyardLayout, floorIndex)` — Returns SVG string for courtyard layouts (L-shape/U-shape) with green courtyard rect, segment units, staircases, and window walls
+- Uses `data-type` attributes for test querying: `"unit"`, `"staircase"`, `"hallway"`, `"window-wall"`, `"unit-label"`, `"lot-boundary"`, `"courtyard"`, `"courtyard-label"`
+- Color scheme: units cream (#EDE8DF), staircases red (#D64545), hallways orange (#D4903A), window walls gold (#D9B84A), commercial teal, courtyard green (#86efac)
 - `SCALE = 5` pixels per foot
 - SVG viewBox matches buildable dimensions for correct aspect ratio
 
@@ -49,21 +51,64 @@ All test-driven development steps through Stage 2 courtyard tests are complete. 
 #### 1.4 URL State — `state.js`
 - `encodeConfigToHash(config)` — Encodes config to URL hash string
 - `decodeHashToConfig(hash)` — Decodes hash to config with validation and defaults
-- Defaults: `{lot: "single", stories: 3, stair: "current", ground: "residential"}`
+- Defaults: `{lot: "single", stories: 3, stair: "current", ground: "residential", buildingType: "standard"}`
 - Validates against allowed values, clamps stories to 2-4
+- `buildingType` encoded as `building=` URL param; valid values: `"standard"`, `"L"`, `"U"`
 
 #### 1.5 Integration — `index.html`
 - Full single-page app with dark theme matching STC brand
-- Control panel: lot type dropdown, stories button group (2/3/4), ground floor dropdown
+- Control panel: lot type dropdown, stories button group (2/3/4), ground floor dropdown, **building type dropdown** (Standard Block / L-Shape Courtyard / U-Shape Courtyard)
 - Tab bar: Floor Plan | 3D View
 - Floor selector buttons with keyboard navigation (arrow keys)
+- **Defaults to Floor 3** (where reform impact is visible) instead of Floor 1
+- **Narrative headline** above comparator: dynamic text based on floor/mode explaining the reform argument
 - Side-by-side comparator: Current Code (orange label) | Delta callout | Reform (green label)
+- **Courtyard mode**: when L-Shape or U-Shape is selected, left panel shows standard reform block, right panel shows courtyard layout with green open space; delta panel shows courtyard-specific metrics
+- Dynamic panel labels update for courtyard mode
 - Per-floor comparison table and whole-building summary table
 - Tooltip on hover for units, staircases, and window walls
 - Responsive layout (stacks on mobile)
 - Print stylesheet (clean B&W)
-- URL hash state management with back/forward support
-- Fonts: DM Sans + JetBrains Mono from Google Fonts CDN
+- URL hash state management with back/forward support (includes `building=` param)
+- Fonts: DM Serif Display + Outfit + JetBrains Mono from Google Fonts CDN
+
+### Advocacy Tool Enhancements (COMPLETE)
+
+These changes make the visualizer dramatically more compelling for the STC/AHI advocacy brief:
+
+#### Wider Circulation Zone — `layout.js`
+- Added `MULTI_STAIR_W = 6` (vs `STAIR_W = 4` for single-stair floors)
+- New `generateMultiStairFloor()` for single/corner lots with 3 staircases on floor 3+
+- 3 stairs distributed front/center/rear in a 6ft-wide column with 2 connecting hallways
+- Units get 14ft width (was 16ft) — **delta jumps from +80 sf (+5%) to +440 sf (+39%)**
+- Area conservation holds exactly: 1120 (units) + 180 (stairs) + 300 (hallways) = 1600 sf
+
+#### Courtyard SVG Rendering — `renderer.js`
+- `renderCourtyardSVG()` renders L-shape and U-shape courtyard layouts
+- Calculates bounding box from all segments + courtyard bounds
+- Green courtyard rect with area label
+- Reuses existing visual language (same colors, font sizing, data attributes)
+
+#### Courtyard Mode UI — `index.html`
+- "Building Type" dropdown: Standard Block / L-Shape Courtyard / U-Shape Courtyard
+- Courtyard mode shows standard reform block on left, courtyard on right
+- Delta panel shows courtyard-specific metrics (livable area, window walls, courtyard space)
+- Dynamic panel labels ("Single Stair Reform (L-Shape Courtyard)")
+
+#### Default Floor 3 — `index.html`
+- Changed `currentFloorIndex` from 0 to 2 (Floor 3)
+- Floor 3 is where reform impact is visible (3 staircases under current code)
+- Existing clamp logic handles 2-story buildings gracefully
+
+#### Narrative Headline — `index.html`
+- Dynamic `.narrative-headline` div above the comparator
+- Floor 3+ standard: "Current code requires 3 staircases above the 2nd floor, wasting **X sf (+Y%)** of livable space per floor."
+- Floor 1-2: "Floors 1-2 are the same under both codes. **Select Floor 3** to see the difference."
+- Courtyard mode: "Single stair reform enables **L/U-Shape courtyard buildings** with apartments facing shared open space for more natural light."
+
+#### URL State — `state.js`
+- Added `buildingType` to defaults, encoding, decoding, and validation
+- Encoded as `building=` URL param; valid values: `"standard"`, `"L"`, `"U"`
 
 ### Stage 2: 3D Building Explorer (TESTS COMPLETE, INTEGRATION PENDING)
 
@@ -88,14 +133,13 @@ All test-driven development steps through Stage 2 courtyard tests are complete. 
 
 ## What Remains To Be Done
 
-### Immediate Next Step: Wire Stage 2 Into `index.html`
+### 3D View Integration (Stage 2 — `index.html`)
 
 The `index.html` currently has a placeholder for the 3D tab. It needs:
 
-1. **Add script tags** for `mesh.js` and `courtyard.js` in `index.html`
-2. **Add Three.js** from CDN (the plan says r128): `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>`
-3. **Add OrbitControls** (also from CDN or inline)
-4. **Implement `render3D()` function** that:
+1. **Add Three.js** from CDN (the plan says r128): `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>`
+2. **Add OrbitControls** (also from CDN or inline)
+3. **Implement `render3D()` function** that:
    - Creates a Three.js scene with dark background
    - Adds ambient + directional lighting
    - Adds ground plane with grid showing lot boundaries
@@ -104,25 +148,15 @@ The `index.html` currently has a placeholder for the 3D tab. It needs:
    - Places both buildings side-by-side in the scene with labels
    - Sets up OrbitControls for rotate/zoom/pan
    - Camera starts at 3/4 aerial angle
-5. **Add courtyard mode control** to the control panel:
-   - Dropdown: Off, L-shape, U-shape
-   - When active, shows courtyard layout instead of standard layout
-   - Uses `generateCourtyardLayout()` for the reform side
-6. **Implement guided tour mode** (presentation stepper):
+4. **Implement guided tour mode** (presentation stepper):
    - "Guided Tour" button that starts a step-by-step walkthrough
    - Steps: empty lot → staircases appear → units fill in → reform transition → courtyard
    - Each step triggered by "Next" button or right arrow key
    - Camera animations between steps
-7. **Implement STL export**:
+5. **Implement STL export**:
    - "Export STL" button
    - Uses three-stl-exporter or manual STL string generation
    - Option for per-floor separate STLs
-
-### After Integration
-
-- Run full test suite (must be 205+ passed, 0 failed)
-- Manual visual QA in browser: check floor plans render correctly, 3D view orbits, responsive on mobile
-- Verify URL hash state works across all parameters
 
 ---
 
@@ -132,15 +166,15 @@ The `index.html` currently has a placeholder for the 3D tab. It needs:
 single-stair-visualizer/
 ├── PLAN.md              # Full build plan (source of truth)
 ├── PROGRESS.md          # This file
-├── index.html           # Main app (Stage 1 complete, Stage 2 3D pending)
-├── layout.js            # Layout engine (generateLayout)
-├── renderer.js          # SVG renderer (renderFloorPlanSVG, renderComparator)
+├── index.html           # Main app (Stage 1 + advocacy enhancements complete, Stage 2 3D pending)
+├── layout.js            # Layout engine (generateLayout, generateMultiStairFloor)
+├── renderer.js          # SVG renderer (renderFloorPlanSVG, renderComparator, renderCourtyardSVG)
 ├── stats.js             # Stats calculator (computeStats)
-├── state.js             # URL hash state (encodeConfigToHash, decodeHashToConfig)
+├── state.js             # URL hash state (encodeConfigToHash, decodeHashToConfig, buildingType)
 ├── mesh.js              # 3D mesh data builder (buildMeshData)
 ├── courtyard.js         # Courtyard layout engine (generateCourtyardLayout)
-├── tests.js             # All tests (205 tests)
-├── test-runner.html     # Browser test runner
+├── tests.js             # All tests (253 tests)
+├── test-runner.html     # Browser test runner (loads all source files including mesh.js and courtyard.js)
 └── run-tests.sh         # Node test runner script (WSL → Windows node.exe)
 ```
 
@@ -209,4 +243,7 @@ The plan mandates strict red/green TDD. Every feature was implemented in this or
 | 3D geometry | ~20 | 2.2 tests |
 | Floor stacking | 4 | 2.3 tests |
 | Courtyard layout | ~16 | 2.4 tests |
-| **Total** | **205** | |
+| Multi-stair hallways | ~14 | 3.1 tests (hallway elements, wider circulation, stair distribution, delta >=15%, area conservation, no overlaps) |
+| Courtyard SVG renderer | 4 | 3.2 tests (SVG output, courtyard rect, unit count, staircase count) |
+| URL state buildingType | 3 | 3.3 tests (roundtrip, default, invalid fallback) |
+| **Total** | **253** | |
