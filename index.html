@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single Stair Visualizer — Chicago Single Stair Reform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f23;
+      --bg-card: #1a1a2e;
+      --bg-hover: #252540;
+      --text: #e0e0e0;
+      --text-muted: #8888aa;
+      --accent: #818cf8;
+      --red: #ef4444;
+      --orange: #f97316;
+      --yellow: #eab308;
+      --green: #22c55e;
+      --teal: #0d9488;
+      --border: #2a2a4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      text-align: center;
+      padding: 1.5rem 1rem 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    header p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 1rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .control-group label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .control-group select,
+    .control-group .btn-group {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .control-group select:hover { border-color: var(--accent); }
+    .control-group select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    .btn-group {
+      display: flex;
+      overflow: hidden;
+      padding: 0 !important;
+    }
+    .btn-group button {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      border: none;
+      border-right: 1px solid var(--border);
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-group button:last-child { border-right: none; }
+    .btn-group button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-group button:hover:not(.active) {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .tab-bar {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-bar button {
+      font-family: 'DM Sans', sans-serif;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-bar button.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .floor-selector {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+    }
+    .floor-selector button {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .floor-selector button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .main-content { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+
+    .comparator-container {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .plan-panel {
+      flex: 1;
+      max-width: 480px;
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+    .plan-panel h3 {
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+    }
+    .plan-panel h3.current-label { color: var(--orange); }
+    .plan-panel h3.reform-label { color: var(--green); }
+    .plan-panel svg { width: 100%; height: auto; display: block; }
+
+    .delta-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      min-width: 120px;
+      text-align: center;
+    }
+    .delta-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+    }
+    .delta-item .value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .delta-item .label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 0.15rem;
+    }
+
+    .stats-section {
+      margin-top: 1.5rem;
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+    .stats-section h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+    }
+    .stats-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .stats-table th, .stats-table td {
+      padding: 0.4rem 0.6rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
+    .stats-table th {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .stats-table .diff-positive { color: var(--green); font-weight: 600; }
+    .stats-table .diff-negative { color: var(--red); font-weight: 600; }
+    .stats-table .diff-zero { color: var(--text-muted); }
+
+    .tooltip {
+      position: fixed;
+      background: #1e1e3a;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .floor-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 0.5rem;
+      font-style: italic;
+    }
+
+    #three-container {
+      width: 100%;
+      height: 500px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .comparator-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .plan-panel { max-width: 100%; }
+      .delta-panel {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .controls { gap: 0.75rem; }
+    }
+
+    /* Print */
+    @media print {
+      body { background: #fff; color: #000; }
+      header, .controls, .tab-bar, .floor-selector, footer { display: none; }
+      .plan-panel { border: 1px solid #ccc; background: #fff; }
+      .stats-section { background: #fff; border: 1px solid #ccc; }
+      .delta-item .value { color: #16a34a; }
+      .stats-table .diff-positive { color: #16a34a; }
+      .stats-table .diff-negative { color: #dc2626; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Single Stair Visualizer</h1>
+    <p>How single stair reform creates bigger, brighter apartments on Chicago's standard lots</p>
+  </header>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Lot Type</label>
+      <select id="lot-select">
+        <option value="single">Single (25×125)</option>
+        <option value="double">Double (50×125)</option>
+        <option value="corner">Corner (25×125)</option>
+      </select>
+    </div>
+    <div class="control-group">
+      <label>Stories</label>
+      <div class="btn-group" id="stories-group">
+        <button data-value="2">2</button>
+        <button data-value="3" class="active">3</button>
+        <button data-value="4">4</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>Ground Floor</label>
+      <select id="ground-select">
+        <option value="residential">Residential</option>
+        <option value="commercial">Commercial/Retail</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="active" data-tab="floorplan">Floor Plan</button>
+    <button data-tab="3d">3D View</button>
+  </div>
+
+  <div id="floorplan-tab">
+    <div class="floor-selector" id="floor-selector"></div>
+    <div class="floor-note" id="floor-note"></div>
+
+    <div class="main-content">
+      <div class="comparator-container">
+        <div class="plan-panel" id="current-panel">
+          <h3 class="current-label">Current Code</h3>
+          <div id="current-svg"></div>
+        </div>
+        <div class="delta-panel" id="delta-panel"></div>
+        <div class="plan-panel" id="reform-panel">
+          <h3 class="reform-label">Single Stair Reform</h3>
+          <div id="reform-svg"></div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h3>Per-Floor Comparison (Floor <span id="stats-floor-num">1</span>)</h3>
+        <table class="stats-table" id="per-floor-table">
+          <thead>
+            <tr><th></th><th>Current Code</th><th>Reform</th><th>Difference</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="stats-section">
+        <h3>Whole-Building Summary</h3>
+        <table class="stats-table" id="whole-building-table">
+          <thead>
+            <tr><th></th><th>Current Code</th><th>Reform</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="three-tab" style="display:none">
+    <div class="main-content">
+      <div id="three-container"></div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <footer>
+    Illustrative visualization for advocacy purposes. Not architectural drawings. &mdash;
+    <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
+    <a href="https://www.abundanthousingil.org">Abundant Housing Illinois</a>
+  </footer>
+
+  <script src="layout.js"></script>
+  <script src="renderer.js"></script>
+  <script src="stats.js"></script>
+  <script src="state.js"></script>
+  <script>
+    // --- App State ---
+    let currentFloorIndex = 0;
+    let currentConfig = decodeHashToConfig(window.location.hash);
+
+    // --- DOM refs ---
+    const lotSelect = document.getElementById('lot-select');
+    const storiesGroup = document.getElementById('stories-group');
+    const groundSelect = document.getElementById('ground-select');
+    const floorSelector = document.getElementById('floor-selector');
+    const floorNote = document.getElementById('floor-note');
+    const currentSvgEl = document.getElementById('current-svg');
+    const reformSvgEl = document.getElementById('reform-svg');
+    const deltaPanel = document.getElementById('delta-panel');
+    const statsFloorNum = document.getElementById('stats-floor-num');
+    const perFloorBody = document.querySelector('#per-floor-table tbody');
+    const wholeBuildingBody = document.querySelector('#whole-building-table tbody');
+    const tooltip = document.getElementById('tooltip');
+
+    // --- Initialize controls from config ---
+    function syncControlsToConfig() {
+      lotSelect.value = currentConfig.lot;
+      groundSelect.value = currentConfig.ground;
+      storiesGroup.querySelectorAll('button').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === String(currentConfig.stories));
+      });
+    }
+
+    // --- Render everything ---
+    function render() {
+      const config = { lot: currentConfig.lot, stories: currentConfig.stories, ground: currentConfig.ground };
+      const current = generateLayout({ ...config, stair: 'current' });
+      const reform = generateLayout({ ...config, stair: 'reform' });
+
+      // Clamp floor index
+      if (currentFloorIndex >= currentConfig.stories) {
+        currentFloorIndex = currentConfig.stories - 1;
+      }
+
+      // Floor selector
+      floorSelector.innerHTML = '';
+      for (let i = 0; i < currentConfig.stories; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = `Floor ${i + 1}`;
+        btn.classList.toggle('active', i === currentFloorIndex);
+        btn.addEventListener('click', () => {
+          currentFloorIndex = i;
+          render();
+        });
+        floorSelector.appendChild(btn);
+      }
+
+      // Floor note
+      const currFloor = current.floors[currentFloorIndex];
+      const refFloor = reform.floors[currentFloorIndex];
+      if (currentFloorIndex < 2 && currentConfig.stories > 2) {
+        floorNote.textContent = 'Floors 1-2: Same under both codes (single stair allowed below 3rd floor)';
+      } else if (currentFloorIndex >= 2) {
+        floorNote.textContent = 'Floor 3+: Current code requires multiple staircases — this is where reform makes the difference';
+      } else {
+        floorNote.textContent = '';
+      }
+
+      // SVG
+      currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
+      reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
+
+      // Deltas for this floor
+      const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
+      const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+      const deltaArea = refLivable - currLivable;
+      const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
+      const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+      const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+      const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+      const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+
+      deltaPanel.innerHTML = '';
+      function addDelta(value, unit, label) {
+        const sign = value > 0 ? '+' : value === 0 ? '' : '';
+        const d = document.createElement('div');
+        d.className = 'delta-item';
+        d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
+        deltaPanel.appendChild(d);
+      }
+      addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
+      addDelta(Number(deltaPct), '%', 'More Space');
+      addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
+      addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
+      addDelta(refBR - currBR, '', 'Bedrooms');
+
+      // Stats tables
+      const fullStats = computeStats(current, reform);
+      statsFloorNum.textContent = currentFloorIndex + 1;
+
+      // Per-floor table
+      const pf = fullStats.perFloor[currentFloorIndex];
+      perFloorBody.innerHTML = '';
+      function addStatRow(table, label, curr, ref, diff, suffix) {
+        const tr = document.createElement('tr');
+        const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
+        const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '—' : `${diff}${suffix || ''}`;
+        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
+        table.appendChild(tr);
+      }
+      addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
+      addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
+      addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
+      addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
+      addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
+      addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
+      addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
+
+      // Whole-building table
+      wholeBuildingBody.innerHTML = '';
+      const wb = fullStats.wholeBuilding;
+      function addWbRow(label, curr, ref) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
+        wholeBuildingBody.appendChild(tr);
+      }
+      addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
+      addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
+      addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
+      addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
+      addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
+
+      // Update URL hash
+      window.history.replaceState(null, '', encodeConfigToHash(currentConfig));
+
+      // Set up hover interactions
+      setupHoverInteractions();
+    }
+
+    // --- Hover interactions ---
+    function setupHoverInteractions() {
+      document.querySelectorAll('[data-type="unit"]').forEach(el => {
+        el.addEventListener('mouseenter', (e) => {
+          el.style.opacity = '0.7';
+          const id = el.getAttribute('data-id');
+          tooltip.style.display = 'block';
+          tooltip.textContent = `Unit ${id}`;
+        });
+        el.addEventListener('mousemove', (e) => {
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY + 12) + 'px';
+        });
+        el.addEventListener('mouseleave', () => {
+          el.style.opacity = '1';
+          tooltip.style.display = 'none';
+        });
+      });
+
+      document.querySelectorAll('[data-type="staircase"]').forEach(el => {
+        el.addEventListener('mouseenter', (e) => {
+          el.style.opacity = '1';
+          const w = parseFloat(el.getAttribute('width'));
+          const d = parseFloat(el.getAttribute('height'));
+          tooltip.style.display = 'block';
+          tooltip.textContent = `Staircase: ${Math.round(w * d)} sf consumed`;
+        });
+        el.addEventListener('mousemove', (e) => {
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY + 12) + 'px';
+        });
+        el.addEventListener('mouseleave', () => {
+          el.style.opacity = '0.8';
+          tooltip.style.display = 'none';
+        });
+      });
+
+      document.querySelectorAll('[data-type="window-wall"]').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          el.setAttribute('stroke-width', '2');
+          tooltip.style.display = 'block';
+          tooltip.textContent = `Window wall: natural light access (${el.getAttribute('data-wall')})`;
+        });
+        el.addEventListener('mousemove', (e) => {
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY + 12) + 'px';
+        });
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('stroke-width', '1');
+          tooltip.style.display = 'none';
+        });
+      });
+    }
+
+    // --- Event listeners ---
+    lotSelect.addEventListener('change', () => {
+      currentConfig.lot = lotSelect.value;
+      render();
+    });
+
+    groundSelect.addEventListener('change', () => {
+      currentConfig.ground = groundSelect.value;
+      render();
+    });
+
+    storiesGroup.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentConfig.stories = parseInt(btn.dataset.value, 10);
+        storiesGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        render();
+      });
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-bar button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.tab;
+        document.getElementById('floorplan-tab').style.display = tab === 'floorplan' ? '' : 'none';
+        document.getElementById('three-tab').style.display = tab === '3d' ? '' : 'none';
+        if (tab === '3d') render3D();
+      });
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' && currentFloorIndex > 0) {
+        currentFloorIndex--;
+        render();
+      } else if (e.key === 'ArrowRight' && currentFloorIndex < currentConfig.stories - 1) {
+        currentFloorIndex++;
+        render();
+      }
+    });
+
+    // Hash change
+    window.addEventListener('hashchange', () => {
+      currentConfig = decodeHashToConfig(window.location.hash);
+      syncControlsToConfig();
+      render();
+    });
+
+    // 3D placeholder
+    function render3D() {
+      const container = document.getElementById('three-container');
+      container.style.display = 'block';
+      container.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">3D view — Stage 2 (coming soon)</p>';
+    }
+
+    // --- Init ---
+    syncControlsToConfig();
+    render();
+  </script>
+</body>
+</html>
