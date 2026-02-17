@@ -369,6 +369,35 @@
       font-weight: 700;
     }
 
+    /* ===== CONTEXT PANEL ===== */
+    .context-panel {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0.85rem 1.25rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .context-panel ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .context-panel li::before {
+      content: '\2022';
+      color: var(--accent);
+      font-weight: 700;
+      margin-right: 0.5rem;
+    }
+    .context-panel strong { color: var(--text); font-weight: 600; }
+
     /* ===== FLOOR NOTE ===== */
     .floor-note {
       text-align: center;
@@ -622,6 +651,58 @@
       margin-bottom: 1rem;
     }
     .footer-safety strong { color: var(--reform); font-weight: 700; }
+
+    /* Key Facts Grid */
+    .key-facts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+      max-width: 700px;
+      margin: 0 auto 1.25rem;
+    }
+    .key-fact {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 0.65rem;
+      text-align: center;
+    }
+    .key-fact .kf-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.2;
+      margin-bottom: 0.2rem;
+    }
+    .key-fact .kf-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 500;
+      line-height: 1.3;
+    }
+    .footer-peers {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-weight: 400;
+    }
+    .footer-peers strong { color: var(--text-secondary); font-weight: 600; }
+    .footer-irony {
+      display: inline-block;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      background: rgba(232, 150, 58, 0.06);
+      border: 1px solid rgba(232, 150, 58, 0.15);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 1.2rem;
+      font-weight: 500;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+    .footer-irony strong { color: var(--accent); font-weight: 700; }
     .footer-fine {
       font-size: 0.65rem;
       color: var(--text-muted);
@@ -654,6 +735,8 @@
       .main-content { padding: 1rem; }
       .legend-bar { gap: 0.75rem; padding: 0.65rem 0.5rem; }
       .footer-cta { font-size: 1.3rem; }
+      .key-facts { grid-template-columns: repeat(2, 1fr); }
+      .context-panel { margin: 0 1rem; }
     }
 
     /* ===== PRINT ===== */
@@ -683,16 +766,16 @@
   <!-- STAT CARDS -->
   <div class="stat-cards">
     <div class="stat-card">
-      <div class="stat-value">3 <span class="arrow">&rarr;</span> 1</div>
-      <div class="stat-label">Staircases per Building</div>
+      <div class="stat-value" id="hero-stat1-value">3 <span class="arrow">&rarr;</span> 1</div>
+      <div class="stat-label" id="hero-stat1-label">Staircases per Building</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">+38%</div>
-      <div class="stat-label">Livable Space per Floor</div>
+      <div class="stat-value" id="hero-stat2-value">+38%</div>
+      <div class="stat-label" id="hero-stat2-label">Livable Space per Floor</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">2 <span class="arrow">&rarr;</span> 3 BR</div>
-      <div class="stat-label">Bedrooms per Unit</div>
+      <div class="stat-value" id="hero-stat3-value">2 <span class="arrow">&rarr;</span> 3 BR</div>
+      <div class="stat-label" id="hero-stat3-label">Bedrooms per Unit</div>
     </div>
   </div>
 
@@ -750,6 +833,7 @@
   <!-- FLOOR PLAN TAB -->
   <div id="floorplan-tab">
     <div class="narrative-headline" id="narrative-headline"></div>
+    <div class="context-panel" id="context-panel" style="display:none"></div>
     <div class="floor-selector" id="floor-selector"></div>
     <div class="floor-note" id="floor-note"></div>
 
@@ -800,6 +884,26 @@
   <!-- FOOTER -->
   <footer>
     <div class="footer-inner">
+      <div class="key-facts">
+        <div class="key-fact">
+          <div class="kf-value">46% &rarr; 2%</div>
+          <div class="kf-label">Fire Spread with Sprinklers</div>
+        </div>
+        <div class="key-fact">
+          <div class="kf-value">3 Stairs</div>
+          <div class="kf-label">Required for 5-8 Units</div>
+        </div>
+        <div class="key-fact">
+          <div class="kf-value">2 Stairs</div>
+          <div class="kf-label">Required for 100+ Units</div>
+        </div>
+        <div class="key-fact">
+          <div class="kf-value">25 ft</div>
+          <div class="kf-label">Typical Chicago Lot Width</div>
+        </div>
+      </div>
+      <div class="footer-irony">A <strong>5-unit walk-up needs 3 staircases</strong> while a <strong>100+ unit high-rise needs only 2</strong> &mdash; the current code penalizes small buildings the most</div>
+      <div class="footer-peers"><strong>Already legal:</strong> Seattle (4 units/floor) &middot; New York &middot; Austin (5-story cap) &middot; Honolulu</div>
       <div class="footer-cta">Support single stair reform in Chicago</div>
       <div class="footer-orgs">
         <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
@@ -836,6 +940,7 @@
     const perFloorBody = document.querySelector('#per-floor-table tbody');
     const wholeBuildingBody = document.querySelector('#whole-building-table tbody');
     const tooltip = document.getElementById('tooltip');
+    const contextPanel = document.getElementById('context-panel');
     const currentPanelLabel = document.querySelector('#current-panel h3');
     const reformPanelLabel = document.querySelector('#reform-panel h3');
 
@@ -880,6 +985,8 @@
       if (isCourtyardMode) {
         const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
         narrativeHeadline.innerHTML = `Single stair reform enables <strong>${shapeLabel} courtyard buildings</strong> with apartments facing shared open space for more natural light.`;
+      } else if (currentConfig.ground === 'commercial' && currentFloorIndex === 0) {
+        narrativeHeadline.innerHTML = 'The ground floor retail space is the same under both codes. <strong>Select Floor 3</strong> to see how reform reclaims residential space above.';
       } else if (currentFloorIndex >= 2) {
         const currFloorTemp = current.floors[currentFloorIndex];
         const refFloorTemp = reform.floors[currentFloorIndex];
@@ -889,11 +996,36 @@
         const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
         narrativeHeadline.innerHTML = `Current code forces 3 staircases above floor 2, consuming <strong>${dArea} sf (+${dPct}%)</strong> of livable space per floor that could be bedrooms.`;
       } else if (currentFloorIndex < 2 && currentConfig.stories > 2) {
-        narrativeHeadline.innerHTML = '2-story buildings already allow a single stair. <strong>Select Floor 3+</strong> to see where reform makes the difference.';
+        narrativeHeadline.innerHTML = 'Floors 1-2 already allow a single stair. <strong>Select Floor 3+</strong> to see where reform makes the difference.';
       } else if (currentConfig.stories <= 2) {
         narrativeHeadline.innerHTML = '2-story buildings already allow a single stair under current code. <strong>Choose 3 or 4 stories</strong> to see the impact of reform.';
       } else {
         narrativeHeadline.innerHTML = '';
+      }
+
+      // Context panel — mode-specific advocacy content
+      if (isCourtyardMode) {
+        contextPanel.style.display = '';
+        contextPanel.innerHTML = `<ul>
+          <li>Courtyard apartments provided <strong>family-sized homes for over a century</strong> in Chicago before the 1957 zoning code killed them with parking minimums</li>
+          <li>The 2025 Connected Communities Ordinance removed parking barriers, but the <strong>two-stair requirement remains the final obstacle</strong> — fire escapes are banned, so 2 interior stairs + hallways make wrap-around window layouts infeasible</li>
+          <li>Single stair reform restores the courtyard form: <strong>units face shared open space</strong> with natural light on 3 sides</li>
+        </ul>`;
+      } else if (currentConfig.ground === 'commercial') {
+        contextPanel.style.display = '';
+        contextPanel.innerHTML = `<ul>
+          <li>Chicago's <strong>25-foot lot</strong> is so narrow that 3 staircases consume a huge share of the floor plate on residential floors</li>
+          <li>Mixed-use "live above, shop below" buildings create <strong>walkable neighborhoods</strong> — but upper-floor inefficiency limits what gets built</li>
+          <li>Single stair reform: <strong>1 stair in the corner</strong> leaves maximum retail frontage and reclaims residential space above</li>
+        </ul>`;
+      } else if (currentFloorIndex >= 2) {
+        contextPanel.style.display = '';
+        contextPanel.innerHTML = `<ul>
+          <li>Fire spread drops from <strong>46% to 2%</strong> with sprinklers + alarms (2024 NFPA study) — single stair buildings are just as safe</li>
+          <li>A <strong>5-8 unit building needs 3 staircases</strong> under current Chicago code, while a <strong>100+ unit tower needs only 2</strong></li>
+        </ul>`;
+      } else {
+        contextPanel.style.display = 'none';
       }
 
       // Floor note
@@ -909,25 +1041,44 @@
         floorNote.textContent = '';
       }
 
-      if (isCourtyardMode) {
-        // --- Courtyard mode: standard block on left, courtyard on right ---
-        const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
-        currentPanelLabel.textContent = 'Standard Block (Reform)';
-        reformPanelLabel.textContent = `Single Stair Reform (${shapeLabel} Courtyard)`;
+      // Reusable stat row helpers (used in both courtyard and standard modes)
+      function addStatRow(table, label, curr, ref, diff, suffix) {
+        const tr = document.createElement('tr');
+        const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
+        const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '\u2014' : `${diff}${suffix || ''}`;
+        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
+        table.appendChild(tr);
+      }
+      function addWbRow(label, curr, ref) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
+        wholeBuildingBody.appendChild(tr);
+      }
 
-        // Left panel: standard reform layout
-        currentSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
+      if (isCourtyardMode) {
+        // --- Courtyard mode: current code on left, courtyard on right ---
+        const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
+        currentPanelLabel.textContent = 'Current Code';
+        currentPanelLabel.className = 'current-label';
+        reformPanelLabel.textContent = `${shapeLabel} Courtyard (Reform)`;
+
+        // Left panel: current code standard block
+        currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
 
         // Right panel: courtyard layout
         const cyLayout = generateCourtyardLayout({ shape: buildingType, stories: currentConfig.stories, ground: currentConfig.ground });
         reformSvgEl.innerHTML = renderCourtyardSVG(cyLayout, currentFloorIndex);
 
-        // Delta: compare courtyard total livable vs standard reform
-        const refFloor = reform.floors[currentFloorIndex];
-        const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+        // Delta: compare courtyard vs current code (the real advocacy argument)
+        const currFloor = current.floors[currentFloorIndex];
+        const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
         const cyLivable = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].livableSqft, 0);
         const cyWindows = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.reduce((us, u) => us + u.windowWalls.length, 0), 0);
-        const refWindows = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+        const currWindows = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+        const cyBedrooms = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.reduce((us, u) => us + u.bedrooms, 0), 0);
+        const currBedrooms = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+        const cyStairs = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].staircases.length, 0);
+        const currStairs = currFloor.staircases.length;
 
         deltaPanel.innerHTML = '';
         function addDelta(value, unit, label) {
@@ -937,19 +1088,66 @@
           d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
           deltaPanel.appendChild(d);
         }
-        addDelta(Math.round(cyLivable - refLivable), ' sf', 'Livable Area');
-        addDelta(cyWindows - refWindows, '', 'Window Walls');
+        addDelta(cyWindows - currWindows, '', 'Window Walls');
         addDelta(Math.round(cyLayout.courtyard.area), ' sf', 'Courtyard Space');
+        addDelta(cyStairs - currStairs, '', 'Staircases');
+        addDelta(Math.round(cyLivable - currLivable), ' sf', 'Livable Area');
+        addDelta(cyBedrooms - currBedrooms, '', 'Bedrooms');
 
-        // Stats tables for courtyard mode (simplified)
+        // Stats tables for courtyard mode
         statsFloorNum.textContent = currentFloorIndex + 1;
+
+        // Update per-floor table header for courtyard mode
+        const pfHead = document.querySelector('#per-floor-table thead tr');
+        pfHead.innerHTML = '<th></th><th>Current Code</th><th>Courtyard</th><th>Difference</th>';
+
         perFloorBody.innerHTML = '';
+        const cyFloorLivable = cyLivable;
+        const cyFloorUnits = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.filter(u => u.type === 'residential').length, 0);
+        const cyFloorCirc = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].circulationSqft, 0);
+        const currCirc = currFloor.circulationSqft;
+
+        addStatRow(perFloorBody, 'Livable Area', `${Math.round(currLivable)} sf`, `${Math.round(cyFloorLivable)} sf`, Math.round(cyFloorLivable - currLivable), ' sf');
+        addStatRow(perFloorBody, 'Units', currFloor.units.filter(u => u.type === 'residential').length, cyFloorUnits, cyFloorUnits - currFloor.units.filter(u => u.type === 'residential').length);
+        addStatRow(perFloorBody, 'Bedrooms', currBedrooms, cyBedrooms, cyBedrooms - currBedrooms);
+        addStatRow(perFloorBody, 'Window Walls', currWindows, cyWindows, cyWindows - currWindows);
+        addStatRow(perFloorBody, 'Staircases', currStairs, cyStairs, cyStairs - currStairs);
+        addStatRow(perFloorBody, 'Courtyard Space', '0 sf', `${Math.round(cyLayout.courtyard.area)} sf`, Math.round(cyLayout.courtyard.area), ' sf');
+        addStatRow(perFloorBody, 'Circulation', `${Math.round(currCirc)} sf`, `${Math.round(cyFloorCirc)} sf`, Math.round(cyFloorCirc - currCirc), ' sf');
+
+        // Whole-building summary for courtyard
         wholeBuildingBody.innerHTML = '';
+        let cyTotalUnits = 0, cyTotalBedrooms = 0, cyTotalLivable = 0;
+        let currTotalUnits = 0, currTotalBedrooms = 0, currTotalLivable = 0;
+        for (let fi = 0; fi < currentConfig.stories; fi++) {
+          for (const seg of cyLayout.segments) {
+            const sf = seg.floors[fi];
+            cyTotalUnits += sf.units.filter(u => u.type === 'residential').length;
+            cyTotalBedrooms += sf.units.reduce((s, u) => s + u.bedrooms, 0);
+            cyTotalLivable += sf.livableSqft;
+          }
+          const cf = current.floors[fi];
+          currTotalUnits += cf.units.filter(u => u.type === 'residential').length;
+          currTotalBedrooms += cf.units.reduce((s, u) => s + u.bedrooms, 0);
+          currTotalLivable += cf.units.reduce((s, u) => s + u.sqft, 0);
+        }
+        const cyAvgUnit = cyTotalUnits > 0 ? cyTotalLivable / cyTotalUnits : 0;
+        const currAvgUnit = currTotalUnits > 0 ? currTotalLivable / currTotalUnits : 0;
+        addWbRow('Total Units', currTotalUnits, cyTotalUnits);
+        addWbRow('Total Bedrooms', currTotalBedrooms, cyTotalBedrooms);
+        addWbRow('Avg Unit Size', `${Math.round(currAvgUnit)} sf`, `${Math.round(cyAvgUnit)} sf`);
+        addWbRow('Total Livable Area', `${Math.round(currTotalLivable)} sf`, `${Math.round(cyTotalLivable)} sf`);
+        addWbRow('Courtyard Space', '0 sf', `${Math.round(cyLayout.courtyard.area)} sf`);
 
       } else {
         // --- Standard mode ---
         currentPanelLabel.textContent = 'Current Code';
+        currentPanelLabel.className = 'current-label';
         reformPanelLabel.textContent = 'Single Stair Reform';
+
+        // Reset per-floor table header for standard mode
+        const pfHead = document.querySelector('#per-floor-table thead tr');
+        pfHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th><th>Difference</th>';
 
         // SVG
         currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
@@ -975,26 +1173,33 @@
           d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
           deltaPanel.appendChild(d);
         }
-        addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
-        addDelta(Number(deltaPct), '%', 'More Space');
-        addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
-        addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
-        addDelta(refBR - currBR, '', 'Bedrooms');
 
-        // Stats tables
+        // Stats tables (computed early so commercial floor 1 can use whole-building data)
         const fullStats = computeStats(current, reform);
+
+        if (currentConfig.ground === 'commercial' && currentFloorIndex === 0) {
+          // Commercial floor 1: show whole-building impact instead of per-floor zeros
+          const wbLabel = document.createElement('div');
+          wbLabel.style.cssText = 'font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:600;text-align:center;padding:0.25rem 0;';
+          wbLabel.textContent = 'Whole-Building Impact';
+          deltaPanel.appendChild(wbLabel);
+          const wb = fullStats.wholeBuilding;
+          addDelta(Math.round(wb.reform.totalLivableArea - wb.current.totalLivableArea), ' sf', 'Total Livable Area');
+          addDelta(wb.reform.totalBedrooms - wb.current.totalBedrooms, '', 'Total Bedrooms');
+          addDelta(Math.round(wb.reform.totalCirculation - wb.current.totalCirculation), ' sf', 'Circulation Saved');
+        } else {
+          addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
+          addDelta(Number(deltaPct), '%', 'More Space');
+          addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
+          addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
+          addDelta(refBR - currBR, '', 'Bedrooms');
+        }
         statsFloorNum.textContent = currentFloorIndex + 1;
 
         // Per-floor table
         const pf = fullStats.perFloor[currentFloorIndex];
         perFloorBody.innerHTML = '';
-        function addStatRow(table, label, curr, ref, diff, suffix) {
-          const tr = document.createElement('tr');
-          const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
-          const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '\u2014' : `${diff}${suffix || ''}`;
-          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
-          table.appendChild(tr);
-        }
+        // addStatRow is defined above the if/else block
         addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
         addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
         addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
@@ -1006,16 +1211,55 @@
         // Whole-building table
         wholeBuildingBody.innerHTML = '';
         const wb = fullStats.wholeBuilding;
-        function addWbRow(label, curr, ref) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
-          wholeBuildingBody.appendChild(tr);
-        }
+        // addWbRow is defined above the if/else block
         addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
         addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
         addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
         addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
         addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
+      }
+
+      // Update hero stat cards based on mode
+      const s1v = document.getElementById('hero-stat1-value');
+      const s1l = document.getElementById('hero-stat1-label');
+      const s2v = document.getElementById('hero-stat2-value');
+      const s2l = document.getElementById('hero-stat2-label');
+      const s3v = document.getElementById('hero-stat3-value');
+      const s3l = document.getElementById('hero-stat3-label');
+
+      if (isCourtyardMode) {
+        const segCount = buildingType === 'L' ? 2 : 3;
+        s1v.innerHTML = `1 <span class="arrow">per</span> wing`;
+        s1l.textContent = 'Stair per Wing';
+        s2v.textContent = `${segCount} Wings`;
+        s2l.textContent = `${buildingType === 'L' ? 'L-Shape' : 'U-Shape'} Courtyard`;
+        const cyL = generateCourtyardLayout({ shape: buildingType, stories: currentConfig.stories, ground: currentConfig.ground });
+        s3v.textContent = `+${Math.round(cyL.courtyard.area)} sf`;
+        s3l.textContent = 'Shared Courtyard';
+      } else {
+        // Compute from actual layout data
+        const heroStats = computeStats(current, reform);
+        const hs = heroStats.wholeBuilding;
+        const livPct = hs.current.totalLivableArea > 0
+          ? Math.round(((hs.reform.totalLivableArea - hs.current.totalLivableArea) / hs.current.totalLivableArea) * 100)
+          : 0;
+        // Find a representative floor 3+ for bedroom comparison
+        let currBRPerUnit = 2, refBRPerUnit = 3;
+        if (currentConfig.stories >= 3) {
+          const f3c = current.floors[2];
+          const f3r = reform.floors[2];
+          const cUnits = f3c.units.filter(u => u.type === 'residential');
+          const rUnits = f3r.units.filter(u => u.type === 'residential');
+          if (cUnits.length > 0) currBRPerUnit = Math.round(cUnits.reduce((s, u) => s + u.bedrooms, 0) / cUnits.length);
+          if (rUnits.length > 0) refBRPerUnit = Math.round(rUnits.reduce((s, u) => s + u.bedrooms, 0) / rUnits.length);
+        }
+        const currStairsF3 = currentConfig.stories >= 3 ? current.floors[2].staircases.length : 1;
+        s1v.innerHTML = `${currStairsF3} <span class="arrow">&rarr;</span> 1`;
+        s1l.textContent = 'Staircases per Building';
+        s2v.textContent = `+${livPct}%`;
+        s2l.textContent = 'Livable Space per Floor';
+        s3v.innerHTML = `${currBRPerUnit} <span class="arrow">&rarr;</span> ${refBRPerUnit} BR`;
+        s3l.textContent = 'Bedrooms per Unit';
       }
 
       // Update URL hash
