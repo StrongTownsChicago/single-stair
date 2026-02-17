@@ -3,6 +3,76 @@
 
 const SCALE = 5; // pixels per foot
 
+// Render dashed room partitions and labels inside a unit
+function renderRoomLayout(unit) {
+  if (unit.type === "commercial") return "";
+  const br = unit.bedrooms;
+  if (br < 1) return "";
+
+  let svg = "";
+  const x = unit.x;
+  const y = unit.y;
+  const w = unit.w;
+  const d = unit.d;
+  const pad = 0.3;
+
+  // Room allocation along the depth axis (top to bottom within unit):
+  //   Living/Kitchen (40%), Bedrooms (40% split), Bath (20%)
+  const livingEnd = y + d * 0.40;
+  const bedroomEnd = y + d * 0.80;
+
+  // Dashed partition: Living/Kitchen bottom edge
+  svg += `<line x1="${x + pad}" y1="${livingEnd}" x2="${x + w - pad}" y2="${livingEnd}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+
+  // Dashed partition: Bedrooms bottom edge (separating BR zone from Bath)
+  svg += `<line x1="${x + pad}" y1="${bedroomEnd}" x2="${x + w - pad}" y2="${bedroomEnd}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+
+  // Vertical partitions between bedrooms
+  if (br >= 2) {
+    for (let i = 1; i < br; i++) {
+      const bx = x + (w / br) * i;
+      svg += `<line x1="${bx}" y1="${livingEnd + pad}" x2="${bx}" y2="${bedroomEnd - pad}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+    }
+  }
+
+  // Room labels — small, muted
+  const labelSize = Math.min(d * 0.045, w * 0.08, 2.2);
+  const labelFill = "#7A756E";
+
+  // Living/Kitchen label
+  svg += `<text x="${x + w / 2}" y="${y + d * 0.20}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Living / Kitchen</text>`;
+
+  // Bedroom labels
+  for (let i = 0; i < br; i++) {
+    const bx = x + (w / br) * i + (w / br) / 2;
+    const by = (livingEnd + bedroomEnd) / 2;
+    svg += `<text x="${bx}" y="${by}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">BR ${i + 1}</text>`;
+  }
+
+  // Bath label
+  svg += `<text x="${x + w / 2}" y="${bedroomEnd + d * 0.10}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Bath</text>`;
+
+  return svg;
+}
+
+// Render label inside a staircase rect
+function renderStairLabel(stair) {
+  const cx = stair.x + stair.w / 2;
+  const cy = stair.y + stair.d / 2;
+  const fontSize = Math.min(stair.w * 0.45, stair.d * 0.12, 2.5);
+  return `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="rgba(255,255,255,0.85)" font-family="'Outfit', sans-serif" font-weight="700" letter-spacing="0.1" data-type="stair-label">STAIR</text>`;
+}
+
+// Render label inside a hallway rect
+function renderHallLabel(hall) {
+  const cx = hall.x + hall.w / 2;
+  const cy = hall.y + hall.d / 2;
+  const fontSize = Math.min(hall.w * 0.35, hall.d * 0.04, 2);
+  // Vertical text for tall narrow hallways
+  const rotate = hall.d > hall.w * 2 ? `transform="rotate(90 ${cx} ${cy})"` : "";
+  return `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="rgba(255,255,255,0.75)" font-family="'Outfit', sans-serif" font-weight="600" letter-spacing="0.08" ${rotate} data-type="hall-label">HALL</text>`;
+}
+
 function renderFloorPlanSVG(layout, floorIndex) {
   const floor = layout.floors[floorIndex];
   const bw = layout.lot.buildableWidth;
@@ -28,6 +98,9 @@ function renderFloorPlanSVG(layout, floorIndex) {
       : `Unit ${unit.id} · ${Math.round(unit.sqft)} sf · ${unit.bedrooms} BR`;
     const fontSize = Math.min(unit.d * 0.08, (unit.w * 0.9) / (labelText.length * 0.55));
     svg += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="#2C2C35" font-family="'Outfit', sans-serif" data-type="unit-label">${labelText}</text>`;
+
+    // Room subdivisions
+    svg += renderRoomLayout(unit);
   }
 
   // Staircases
@@ -39,11 +112,13 @@ function renderFloorPlanSVG(layout, floorIndex) {
       const sy = stair.y + (stair.d / steps) * s;
       svg += `<line x1="${stair.x}" y1="${sy}" x2="${stair.x + stair.w}" y2="${sy}" stroke="#A63333" stroke-width="0.15"/>`;
     }
+    svg += renderStairLabel(stair);
   }
 
   // Hallways
   for (const hall of floor.hallways) {
     svg += `<rect x="${hall.x}" y="${hall.y}" width="${hall.w}" height="${hall.d}" fill="#D4903A" opacity="0.65" stroke="#A36D2A" stroke-width="0.3" data-type="hallway" rx="0.3"/>`;
+    svg += renderHallLabel(hall);
   }
 
   // Window walls (exterior walls with windows)
@@ -159,6 +234,9 @@ function renderCourtyardSVG(courtyardLayout, floorIndex) {
         : `${unit.id} · ${Math.round(unit.sqft)} sf · ${unit.bedrooms} BR`;
       const fontSize = Math.min(unit.d * 0.08, (unit.w * 0.9) / (labelText.length * 0.55));
       svg += `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="#2C2C35" font-family="'Outfit', sans-serif" data-type="unit-label">${labelText}</text>`;
+
+      // Room subdivisions
+      svg += renderRoomLayout(unit);
     }
 
     // Staircases
@@ -169,6 +247,7 @@ function renderCourtyardSVG(courtyardLayout, floorIndex) {
         const sy = stair.y + (stair.d / steps) * s;
         svg += `<line x1="${stair.x}" y1="${sy}" x2="${stair.x + stair.w}" y2="${sy}" stroke="#A63333" stroke-width="0.15"/>`;
       }
+      svg += renderStairLabel(stair);
     }
 
     // Window walls

@@ -6,20 +6,21 @@
   <title>Single Stair Visualizer — Chicago Single Stair Reform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     /* ===== DESIGN TOKENS ===== */
     :root {
-      --bg-deep: #0B0E13;
-      --bg: #12151C;
-      --bg-surface: #1A1E28;
-      --bg-elevated: #222831;
-      --bg-hover: #2A3040;
-      --text: #E8E4DC;
-      --text-secondary: #A09C94;
+      --bg-deep: #0A0D11;
+      --bg: #10131A;
+      --bg-surface: #171B24;
+      --bg-elevated: #1E2330;
+      --bg-hover: #262D3D;
+      --text: #EAE6DE;
+      --text-secondary: #A8A49C;
       --text-muted: #6B6860;
-      --accent: #7B9EF0;
-      --accent-dim: rgba(123, 158, 240, 0.12);
+      --accent: #E8963A;
+      --accent-dim: rgba(232, 150, 58, 0.10);
+      --accent-glow: rgba(232, 150, 58, 0.06);
       --current-code: #E07A5A;
       --reform: #5BBF82;
       --reform-dim: rgba(91, 191, 130, 0.08);
@@ -41,39 +42,154 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Instrument Sans', 'Outfit', sans-serif;
       background: var(--bg);
-      background-image:
-        radial-gradient(ellipse at 15% 0%, rgba(123, 158, 240, 0.035) 0%, transparent 50%),
-        radial-gradient(ellipse at 85% 100%, rgba(91, 191, 130, 0.025) 0%, transparent 50%);
       color: var(--text);
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* ===== HEADER ===== */
-    header {
-      text-align: center;
-      padding: 2.75rem 1.5rem 1.75rem;
-      background: linear-gradient(180deg, rgba(123, 158, 240, 0.05) 0%, transparent 100%);
-      border-bottom: 1px solid var(--border);
+    /* ===== HERO ===== */
+    .hero {
       position: relative;
+      text-align: center;
+      padding: 3.5rem 1.5rem 2.5rem;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border);
     }
-    header h1 {
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(232, 150, 58, 0.07) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(91, 191, 130, 0.04) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.015) 59px, rgba(255,255,255,0.015) 60px),
+        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.015) 59px, rgba(255,255,255,0.015) 60px);
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    }
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      padding: 0.35rem 1rem;
+      background: var(--accent-dim);
+      border: 1px solid rgba(232, 150, 58, 0.18);
+      border-radius: 100px;
+      animation: fadeDown 0.6s ease-out both;
+    }
+    .hero h1 {
       font-family: 'DM Serif Display', serif;
-      font-size: 2.4rem;
+      font-size: clamp(2rem, 5vw, 3.2rem);
       font-weight: 400;
       color: #fff;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
+      letter-spacing: -0.025em;
+      line-height: 1.08;
+      margin-bottom: 1rem;
+      animation: fadeDown 0.6s 0.1s ease-out both;
     }
-    header p {
+    .hero h1 .accent { color: var(--accent); }
+    .hero-subtitle {
       color: var(--text-secondary);
-      font-size: 0.95rem;
-      margin-top: 0.6rem;
-      font-weight: 300;
-      letter-spacing: 0.01em;
+      font-size: 1.05rem;
+      font-weight: 400;
+      line-height: 1.6;
+      max-width: 620px;
+      margin: 0 auto 1.5rem;
+      animation: fadeDown 0.6s 0.2s ease-out both;
+    }
+    .hero-cities {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      animation: fadeDown 0.6s 0.3s ease-out both;
+    }
+    .hero-cities::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--reform);
+      box-shadow: 0 0 8px rgba(91, 191, 130, 0.5);
+    }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== STAT CARDS ===== */
+    .stat-cards {
+      display: flex;
+      justify-content: center;
+      gap: 1px;
+      background: var(--border-light);
+      border-bottom: 1px solid var(--border);
+      animation: fadeIn 0.6s 0.35s ease-out both;
+    }
+    .stat-card {
+      flex: 1;
+      max-width: 300px;
+      background: var(--bg-deep);
+      padding: 1.35rem 1.5rem;
+      text-align: center;
+      transition: background 0.3s;
+    }
+    .stat-card:hover {
+      background: var(--bg-surface);
+    }
+    .stat-card .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+      margin-bottom: 0.3rem;
+    }
+    .stat-card .stat-value .arrow {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 1.1rem;
+      margin: 0 0.15rem;
+    }
+    .stat-card .stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     /* ===== CONTROLS ===== */
@@ -81,7 +197,7 @@
       display: flex;
       justify-content: center;
       gap: 2rem;
-      padding: 1.25rem 1.5rem;
+      padding: 1.1rem 1.5rem;
       flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
       background: var(--bg-deep);
@@ -92,15 +208,15 @@
       gap: 0.4rem;
     }
     .control-group label {
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.13em;
       color: var(--text-muted);
       font-weight: 600;
     }
     .control-group select,
     .control-group .btn-group {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Instrument Sans', sans-serif;
       background: var(--bg-surface);
       color: var(--text);
       border: 1px solid var(--border-light);
@@ -128,7 +244,7 @@
       gap: 0;
     }
     .btn-group button {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Instrument Sans', sans-serif;
       background: var(--bg-surface);
       color: var(--text-muted);
       border: none;
@@ -143,7 +259,7 @@
     .btn-group button.active {
       background: var(--accent);
       color: #fff;
-      font-weight: 600;
+      font-weight: 700;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
     }
     .btn-group button:hover:not(.active) {
@@ -160,7 +276,7 @@
       background: var(--bg-deep);
     }
     .tab-bar button {
-      font-family: 'Outfit', sans-serif;
+      font-family: 'Instrument Sans', sans-serif;
       background: transparent;
       color: var(--text-muted);
       border: none;
@@ -177,6 +293,33 @@
       color: var(--accent);
       border-bottom-color: var(--accent);
       font-weight: 600;
+    }
+
+    /* ===== LEGEND ===== */
+    .legend-bar {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.015);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
     }
 
     /* ===== FLOOR SELECTOR ===== */
@@ -213,11 +356,11 @@
     /* ===== NARRATIVE HEADLINE ===== */
     .narrative-headline {
       text-align: center;
-      padding: 1rem 1.5rem 0.25rem;
+      padding: 1.25rem 1.5rem 0.25rem;
       font-size: 1.05rem;
       font-weight: 400;
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.6;
       max-width: 800px;
       margin: 0 auto;
     }
@@ -229,11 +372,11 @@
     /* ===== FLOOR NOTE ===== */
     .floor-note {
       text-align: center;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
       padding: 0 1rem 0.5rem;
       font-style: italic;
-      font-weight: 300;
+      font-weight: 400;
     }
 
     /* ===== MAIN CONTENT ===== */
@@ -246,14 +389,14 @@
     /* ===== COMPARATOR ===== */
     .comparator-container {
       display: flex;
-      gap: 1rem;
-      align-items: flex-start;
+      gap: 0;
+      align-items: stretch;
       justify-content: center;
     }
 
     .plan-panel {
       flex: 1;
-      max-width: 500px;
+      max-width: 480px;
       background: var(--bg-surface);
       border-radius: var(--radius-md);
       padding: 1.25rem;
@@ -267,8 +410,8 @@
     }
     .plan-panel h3 {
       text-align: center;
-      font-size: 0.8rem;
-      font-weight: 600;
+      font-size: 0.75rem;
+      font-weight: 700;
       margin-bottom: 1rem;
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -292,11 +435,12 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 0.6rem;
-      padding: 0.5rem;
-      min-width: 140px;
+      gap: 0.65rem;
+      padding: 0.75rem 1rem;
+      min-width: 160px;
       text-align: center;
       position: relative;
+      background: linear-gradient(180deg, transparent 0%, rgba(91, 191, 130, 0.02) 50%, transparent 100%);
     }
     .delta-panel::before {
       content: '';
@@ -312,31 +456,31 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-light);
       border-radius: var(--radius-sm);
-      padding: 0.65rem 0.75rem;
+      padding: 0.85rem 0.75rem;
       font-family: 'JetBrains Mono', monospace;
       transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s;
       position: relative;
       z-index: 1;
     }
     .delta-item:hover {
-      transform: translateY(-2px);
-      border-color: rgba(91, 191, 130, 0.3);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      transform: scale(1.04);
+      border-color: rgba(91, 191, 130, 0.35);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 20px rgba(91, 191, 130, 0.06);
     }
     .delta-item .value {
-      font-size: 1.2rem;
+      font-size: 1.55rem;
       font-weight: 700;
       color: var(--reform);
       display: block;
-      line-height: 1.2;
+      line-height: 1.15;
     }
     .delta-item .label {
-      font-size: 0.6rem;
+      font-size: 0.58rem;
       color: var(--text-muted);
       display: block;
-      margin-top: 0.2rem;
+      margin-top: 0.25rem;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
     }
 
     /* ===== STATS SECTION ===== */
@@ -370,7 +514,7 @@
     .stats-table th {
       color: var(--text-muted);
       font-weight: 600;
-      font-size: 0.65rem;
+      font-size: 0.63rem;
       text-transform: uppercase;
       letter-spacing: 0.1em;
       padding-bottom: 0.85rem;
@@ -405,15 +549,6 @@
       backdrop-filter: blur(8px);
     }
 
-    .floor-note {
-      text-align: center;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      padding: 0 1rem 0.5rem;
-      font-style: italic;
-      font-weight: 300;
-    }
-
     #three-container {
       width: 100%;
       height: 500px;
@@ -427,30 +562,80 @@
     /* ===== FOOTER ===== */
     footer {
       text-align: center;
-      padding: 2.5rem 1.5rem;
-      color: var(--text-muted);
-      font-size: 0.75rem;
+      padding: 3rem 1.5rem 2.5rem;
       border-top: 1px solid var(--border);
       margin-top: 3rem;
-      font-weight: 300;
-      letter-spacing: 0.01em;
+      position: relative;
+      overflow: hidden;
     }
-    footer a {
+    footer::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(232, 150, 58, 0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .footer-inner {
+      position: relative;
+      z-index: 1;
+    }
+    .footer-cta {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.6rem;
+      color: #fff;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.01em;
+    }
+    .footer-orgs {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.4rem;
+      font-weight: 400;
+    }
+    .footer-orgs a {
       color: var(--accent);
       text-decoration: none;
-      font-weight: 500;
+      font-weight: 600;
       transition: color 0.2s;
     }
-    footer a:hover {
+    .footer-orgs a:hover {
       color: #fff;
       text-decoration: underline;
+    }
+    .footer-ward {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .footer-safety {
+      display: inline-block;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      background: rgba(91, 191, 130, 0.06);
+      border: 1px solid rgba(91, 191, 130, 0.12);
+      border-radius: 100px;
+      padding: 0.4rem 1rem;
+      font-weight: 500;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+    .footer-safety strong { color: var(--reform); font-weight: 700; }
+    .footer-fine {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.01em;
     }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 768px) {
-      header h1 { font-size: 1.6rem; }
-      header p { font-size: 0.85rem; }
-      header { padding: 2rem 1rem 1.25rem; }
+      .hero { padding: 2.5rem 1rem 2rem; }
+      .hero h1 { font-size: 1.8rem; }
+      .hero-subtitle { font-size: 0.92rem; }
+      .stat-cards { flex-direction: column; gap: 1px; }
+      .stat-card { max-width: 100%; }
       .comparator-container {
         flex-direction: column;
         align-items: stretch;
@@ -460,16 +645,21 @@
         flex-direction: row;
         flex-wrap: wrap;
         justify-content: center;
+        padding: 0.5rem;
+        min-width: auto;
       }
       .delta-panel::before { display: none; }
+      .delta-item .value { font-size: 1.2rem; }
       .controls { gap: 1rem; }
       .main-content { padding: 1rem; }
+      .legend-bar { gap: 0.75rem; padding: 0.65rem 0.5rem; }
+      .footer-cta { font-size: 1.3rem; }
     }
 
     /* ===== PRINT ===== */
     @media print {
       body { background: #fff; color: #000; }
-      header, .controls, .tab-bar, .floor-selector, footer { display: none; }
+      .hero, .stat-cards, .controls, .tab-bar, .legend-bar, .floor-selector, footer { display: none; }
       .plan-panel { border: 1px solid #ccc; background: #fff; box-shadow: none; }
       .stats-section { background: #fff; border: 1px solid #ccc; box-shadow: none; }
       .delta-item .value { color: #16a34a; }
@@ -479,18 +669,41 @@
   </style>
 </head>
 <body>
-  <header>
-    <h1>Single Stair Visualizer</h1>
-    <p>How single stair reform creates bigger, brighter apartments on Chicago's standard lots</p>
-  </header>
 
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-kicker">Chicago Building Code Reform</div>
+      <h1>What If Chicago Allowed<br><span class="accent">Single Stair Buildings?</span></h1>
+      <p class="hero-subtitle">Chicago's building code forces 3 staircases into small apartment buildings above the 2nd floor &mdash; consuming space that could be bedrooms. A single staircase with sprinklers is just as safe, and already legal in Seattle, New York, Honolulu &amp; Austin.</p>
+      <div class="hero-cities">Already adopted by peer cities across the U.S.</div>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stat-cards">
+    <div class="stat-card">
+      <div class="stat-value">3 <span class="arrow">&rarr;</span> 1</div>
+      <div class="stat-label">Staircases per Building</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">+38%</div>
+      <div class="stat-label">Livable Space per Floor</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">2 <span class="arrow">&rarr;</span> 3 BR</div>
+      <div class="stat-label">Bedrooms per Unit</div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
   <div class="controls">
     <div class="control-group">
       <label>Lot Type</label>
       <select id="lot-select">
-        <option value="single">Single (25×125)</option>
-        <option value="double">Double (50×125)</option>
-        <option value="corner">Corner (25×125)</option>
+        <option value="single">Single (25&times;125)</option>
+        <option value="double">Double (50&times;125)</option>
+        <option value="corner">Corner (25&times;125)</option>
       </select>
     </div>
     <div class="control-group">
@@ -518,11 +731,23 @@
     </div>
   </div>
 
+  <!-- TAB BAR -->
   <div class="tab-bar">
     <button class="active" data-tab="floorplan">Floor Plan</button>
     <button data-tab="3d">3D View</button>
   </div>
 
+  <!-- LEGEND -->
+  <div class="legend-bar">
+    <div class="legend-item"><span class="legend-swatch" style="background:#D64545;"></span> Staircase</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#D4903A;"></span> Hallway</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#D9B84A;"></span> Window Wall</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#EDE8DF;"></span> Livable Space</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#3DA89A;"></span> Commercial</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#86efac; opacity:0.6;"></span> Courtyard</div>
+  </div>
+
+  <!-- FLOOR PLAN TAB -->
   <div id="floorplan-tab">
     <div class="narrative-headline" id="narrative-headline"></div>
     <div class="floor-selector" id="floor-selector"></div>
@@ -563,6 +788,7 @@
     </div>
   </div>
 
+  <!-- 3D TAB -->
   <div id="three-tab" style="display:none">
     <div class="main-content">
       <div id="three-container"></div>
@@ -571,10 +797,18 @@
 
   <div class="tooltip" id="tooltip"></div>
 
+  <!-- FOOTER -->
   <footer>
-    Illustrative visualization for advocacy purposes. Not architectural drawings. &mdash;
-    <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
-    <a href="https://www.abundanthousingil.org">Abundant Housing Illinois</a>
+    <div class="footer-inner">
+      <div class="footer-cta">Support single stair reform in Chicago</div>
+      <div class="footer-orgs">
+        <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
+        <a href="https://www.abundanthousingil.org">Abundant Housing Illinois</a>
+      </div>
+      <div class="footer-ward">Prepared in partnership with the 47th Ward</div>
+      <div class="footer-safety"><strong>Safe &amp; proven:</strong> Single stair buildings with sprinklers have fire safety rates equal to multi-stair buildings &mdash; Pew Research, 2025</div>
+      <div class="footer-fine">Illustrative visualization for advocacy purposes. Not architectural drawings.</div>
+    </div>
   </footer>
 
   <script src="layout.js"></script>
@@ -653,9 +887,11 @@
         const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
         const dArea = Math.round(rLiv - cLiv);
         const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-        narrativeHeadline.innerHTML = `Current code requires 3 staircases above the 2nd floor, wasting <strong>${dArea} sf (+${dPct}%)</strong> of livable space per floor.`;
+        narrativeHeadline.innerHTML = `Current code forces 3 staircases above floor 2, consuming <strong>${dArea} sf (+${dPct}%)</strong> of livable space per floor that could be bedrooms.`;
       } else if (currentFloorIndex < 2 && currentConfig.stories > 2) {
-        narrativeHeadline.innerHTML = 'Floors 1-2 are the same under both codes. <strong>Select Floor 3</strong> to see the difference.';
+        narrativeHeadline.innerHTML = '2-story buildings already allow a single stair. <strong>Select Floor 3+</strong> to see where reform makes the difference.';
+      } else if (currentConfig.stories <= 2) {
+        narrativeHeadline.innerHTML = '2-story buildings already allow a single stair under current code. <strong>Choose 3 or 4 stories</strong> to see the impact of reform.';
       } else {
         narrativeHeadline.innerHTML = '';
       }
@@ -665,7 +901,7 @@
         if (currentFloorIndex < 2 && currentConfig.stories > 2) {
           floorNote.textContent = 'Floors 1-2: Same under both codes (single stair allowed below 3rd floor)';
         } else if (currentFloorIndex >= 2) {
-          floorNote.textContent = 'Floor 3+: Current code requires multiple staircases — this is where reform makes the difference';
+          floorNote.textContent = 'Floor 3+: Current code requires multiple staircases \u2014 this is where reform makes the difference';
         } else {
           floorNote.textContent = '';
         }

@@ -167,18 +167,17 @@ function generateDoubleFloor(lot, floorLevel) {
 
   const leftW = stairX;
   const rightW = bw - stairX - STAIR_W;
-  const topD = stairY;
-  const bottomD = bd - stairY - STAIR_D;
 
-  // 4 quadrant units around the central staircase
+  // 4 quadrant units split at center line — extend to halfD so no dead strips
+  // Stair renders on top of units where it overlaps
   const quadrants = [
-    { id: "A", x: 0, y: 0, w: leftW, d: topD, pos: "front-left", windows: ["north", "west"] },
-    { id: "B", x: stairX + STAIR_W, y: 0, w: rightW, d: topD, pos: "front-right", windows: ["north", "east"] },
-    { id: "C", x: 0, y: stairY + STAIR_D, w: leftW, d: bottomD, pos: "rear-left", windows: ["south", "west"] },
-    { id: "D", x: stairX + STAIR_W, y: stairY + STAIR_D, w: rightW, d: bottomD, pos: "rear-right", windows: ["south", "east"] },
+    { id: "A", x: 0, y: 0, w: leftW, d: halfD, pos: "front-left", windows: ["north", "west"] },
+    { id: "B", x: stairX + STAIR_W, y: 0, w: rightW, d: halfD, pos: "front-right", windows: ["north", "east"] },
+    { id: "C", x: 0, y: halfD, w: leftW, d: halfD, pos: "rear-left", windows: ["south", "west"] },
+    { id: "D", x: stairX + STAIR_W, y: halfD, w: rightW, d: halfD, pos: "rear-right", windows: ["south", "east"] },
   ];
 
-  // Dead zone: strips above/below stair between the quadrants
+  // Dead zone: only the vertical stair column not covered by quadrants or stair
   const stairArea = STAIR_W * STAIR_D;
   const totalQuadArea = quadrants.reduce((s, q) => s + q.w * q.d, 0);
   const deadZone = bw * bd - totalQuadArea - stairArea;
@@ -359,7 +358,7 @@ function estimateBedrooms(sqft, windowWallCount) {
   // Rule of thumb: 1 BR per ~150sf of non-kitchen/bath space, capped by window walls
   const nonKitchenBath = sqft - 150;
   const bySpace = Math.max(1, Math.floor(nonKitchenBath / 150));
-  return Math.min(bySpace, Math.max(1, windowWallCount * 2));
+  return Math.min(bySpace, Math.max(1, windowWallCount * 3));
 }
 
 // Make available globally (browser) and for Node require

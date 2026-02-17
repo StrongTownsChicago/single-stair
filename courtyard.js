@@ -198,7 +198,7 @@ function generateSegment(params) {
 function estimateBedrooms(sqft, windowWallCount) {
   const nonKitchenBath = sqft - 150;
   const bySpace = Math.max(1, Math.floor(nonKitchenBath / 150));
-  return Math.min(bySpace, Math.max(1, windowWallCount * 2));
+  return Math.min(bySpace, Math.max(1, windowWallCount * 3));
 }
 
 // Make available globally (browser) and for Node require
