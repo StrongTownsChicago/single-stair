@@ -719,7 +719,7 @@ assertEqual(s2.deltas.staircases, 0, "2-story building: zero staircase delta");
 - Responsive layout: on desktop, plans are side-by-side; on mobile, stacked vertically with a toggle between "Current" and "Reform"
 - Print stylesheet: clean black-and-white version for handouts
 - Screenshot-friendly: clean enough that a screenshot of the side-by-side can go directly into a tweet or slide deck
-- Shareable URL with parameters encoded in the hash: `#lot=single&stories=3&ground=residential` so Alex can send specific configurations to aldermen
+- Shareable URL with parameters encoded in the hash: `#lot=single&stories=3&ground=residential` so we can send specific configurations to aldermen
 - Keyboard accessible: arrow keys to switch floors, tab between elements
 
 #### 1.4 TDD: URL State & Integration Tests (Red, Then Green)
@@ -771,7 +771,7 @@ A single HTML file (like the permits map) with:
 
 ## Stage 2: 3D Building Explorer
 
-**Goal:** Add a 3D tab that uses the same layout engine to render the full building, supporting Alex's goals of showing courtyard configurations and stackable floors.
+**Goal:** Add a 3D tab that uses the same layout engine to render the full building, supporting our goals of showing courtyard configurations and stackable floors.
 
 ### 2.1 — Three.js Scene Setup
 
@@ -948,8 +948,6 @@ assertApprox(
 
 ### 2.3 — Interactive Floor Stacking
 
-This is Alex's goal #3 — "make the floors stackable."
-
 **Controls:**
 
 - A vertical slider or +/− buttons for number of stories (2, 3, 4)
@@ -960,8 +958,6 @@ This is Alex's goal #3 — "make the floors stackable."
 **The animation is key for presentations.** Being able to say "now watch what happens when we add a third floor" and having the staircase situation visibly change is more persuasive than any static image.
 
 ### 2.4 — Courtyard Mode
-
-Alex's goal #2 — "show how 2–3 single stair clusters form L-shaped or U-shaped courtyards."
 
 **Implementation:**
 
@@ -1084,20 +1080,9 @@ For meeting use, add a "guided tour" mode:
 4. **"With single stair reform"** — staircases animate away (2 disappear), apartments expand, window highlights appear
 5. **"And you can combine them into courtyards"** — camera pulls back, adjacent segments appear, courtyard forms
 
-Each step triggered by clicking "Next" or pressing the right arrow key. This is a presentation tool Alex can walk CFD through in real time.
+Each step triggered by clicking "Next" or pressing the right arrow key.
 
-### 2.6 — STL Export (Bonus)
-
-Since Alex mentioned 3D printing:
-
-- Add an "Export STL" button that converts the current Three.js geometry to STL format
-- Use a client-side library like `three-stl-exporter`
-- The exported file can be sent directly to a 3D printer
-- Each floor as a separate STL if Alex wants physically stackable pieces
-
-This is low-priority but nearly free to add once the 3D geometry exists.
-
-### 2.7 — Stage 2 Deliverable
+### 2.6 — Stage 2 Deliverable
 
 Same HTML file, now with two tabs:
 
@@ -1275,8 +1260,6 @@ STAGE 2:
 
 2. **Lot variation.** Real Chicago lots vary — some are 24ft, some 26ft, setbacks differ by zoning. Mitigation: the defaults cover the most common case (25×125 standard lot), and the layout engine can be extended to accept custom dimensions.
 
-3. **Scope creep into Stage 2 before Stage 1 ships.** Mitigation: Stage 1 is defined as a complete deliverable. Ship it, get feedback from Alex and the 47th Ward, then build Stage 2 based on what they actually need for their next meeting.
+3. **CFD dismissing it as "just a cartoon."** Mitigation: the stats underneath are real (square footage math is straightforward), and the tool links to the actual code sections and Exhibit G ordinance language. The visualization makes the math legible, not fictional.
 
-4. **CFD dismissing it as "just a cartoon."** Mitigation: the stats underneath are real (square footage math is straightforward), and the tool links to the actual code sections and Exhibit G ordinance language. The visualization makes the math legible, not fictional.
-
-5. **Tests passing but visuals wrong.** TDD validates the data model, not the aesthetics. A floor plan can be mathematically correct but visually misleading (e.g., elements too small to read, colors ambiguous). Mitigation: treat visual QA as a manual gate at the end of each stage — after all tests are green, eyeball the output in-browser and on a phone. File visual bugs as new failing tests before fixing.
+4. **Tests passing but visuals wrong.** TDD validates the data model, not the aesthetics. A floor plan can be mathematically correct but visually misleading (e.g., elements too small to read, colors ambiguous). Mitigation: treat visual QA as a manual gate at the end of each stage — after all tests are green, eyeball the output in-browser and on a phone. File visual bugs as new failing tests before fixing.
