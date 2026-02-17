@@ -626,12 +626,120 @@
 
     #three-container {
       width: 100%;
-      height: 500px;
+      height: 600px;
       background: var(--bg-surface);
       border-radius: var(--radius-md);
       border: 1px solid var(--border);
       display: none;
       box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+    #three-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ===== 3D VIEW CONTROLS ===== */
+    .three-actions {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1rem 0 0;
+    }
+    .action-btn {
+      font-family: 'Instrument Sans', sans-serif;
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 1.25rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+    }
+    .action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+    .action-btn.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ===== TOUR CONTROLS ===== */
+    .tour-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-top: 0.75rem;
+    }
+    .tour-btn {
+      font-family: 'Instrument Sans', sans-serif;
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 0.4rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tour-btn:hover:not(:disabled) {
+      background: var(--bg-hover);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+    .tour-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .tour-step-indicator {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    /* ===== TOUR ANNOTATION ===== */
+    .tour-annotation {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 19, 26, 0.92);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      max-width: 420px;
+      width: 90%;
+      z-index: 10;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .tour-annotation h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.35rem;
+    }
+    .tour-annotation p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin: 0;
     }
 
     /* ===== FOOTER ===== */
@@ -786,12 +894,16 @@
       .courtyard-features { gap: 0.5rem; }
       .courtyard-feature { flex: 1 1 100px; max-width: 140px; padding: 0.7rem 0.75rem; }
       .courtyard-feature .value { font-size: 1.1rem; }
+      #three-container { height: 400px; }
+      .tour-annotation { max-width: 300px; padding: 0.75rem 1rem; }
+      .tour-annotation h4 { font-size: 0.85rem; }
+      .tour-annotation p { font-size: 0.72rem; }
     }
 
     /* ===== PRINT ===== */
     @media print {
       body { background: #fff; color: #000; }
-      .hero, .stat-cards, .controls, .tab-bar, .legend-bar, .floor-selector, footer { display: none; }
+      .hero, .stat-cards, .controls, .tab-bar, .legend-bar, .floor-selector, footer, #three-tab { display: none; }
       .plan-panel { border: 1px solid #ccc; background: #fff; box-shadow: none; }
       .stats-section { background: #fff; border: 1px solid #ccc; box-shadow: none; }
       .delta-item .value { color: #16a34a; }
@@ -926,7 +1038,20 @@
   <!-- 3D TAB -->
   <div id="three-tab" style="display:none">
     <div class="main-content">
-      <div id="three-container"></div>
+      <div id="three-container">
+        <div class="tour-annotation" id="tour-annotation" style="display:none">
+          <h4 id="tour-title"></h4>
+          <p id="tour-description"></p>
+        </div>
+      </div>
+      <div class="three-actions">
+        <button id="tour-start-btn" class="action-btn">Guided Tour</button>
+      </div>
+      <div class="tour-controls" id="tour-controls" style="display:none">
+        <button id="tour-prev" class="tour-btn">&larr; Previous</button>
+        <div class="tour-step-indicator" id="tour-indicator">1 / 5</div>
+        <button id="tour-next" class="tour-btn">Next &rarr;</button>
+      </div>
     </div>
   </div>
 
@@ -966,11 +1091,16 @@
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="layout.js"></script>
   <script src="renderer.js"></script>
   <script src="stats.js"></script>
   <script src="state.js"></script>
   <script src="courtyard.js"></script>
+  <script src="mesh.js"></script>
+  <script src="viewer3d.js"></script>
+  <script src="tour.js"></script>
   <script>
     // --- App State ---
     let currentFloorIndex = 2; // Default to floor 3 (0-indexed) where reform impact is visible
@@ -1328,6 +1458,11 @@
 
       // Set up hover interactions
       setupHoverInteractions();
+
+      // Re-render 3D view if active
+      if (document.getElementById('three-tab').style.display !== 'none') {
+        render3D();
+      }
     }
 
     // --- Hover interactions ---
@@ -1423,6 +1558,30 @@
 
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
+      // Tour mode: arrow keys navigate tour steps
+      const tourState = typeof getViewerState === 'function' ? getViewerState().tourState : null;
+      if (tourState && tourState.active && !tourState.animating) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          advanceTour(tourState, -1);
+          goToTourStep(tourState.currentStep);
+          updateTourUI();
+          return;
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          advanceTour(tourState, 1);
+          goToTourStep(tourState.currentStep);
+          updateTourUI();
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          endTour();
+          updateTourUI();
+          return;
+        }
+      }
+
+      // Normal floor navigation
       if (e.key === 'ArrowLeft' && currentFloorIndex > 0) {
         currentFloorIndex--;
         render();
@@ -1439,12 +1598,82 @@
       render();
     });
 
-    // 3D placeholder
+    // 3D rendering
+    let _render3DTimeout = null;
+    let _isRendering3D = false;
+
     function render3D() {
-      const container = document.getElementById('three-container');
-      container.style.display = 'block';
-      container.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">3D view — Stage 2 (coming soon)</p>';
+      if (_isRendering3D) return;
+      clearTimeout(_render3DTimeout);
+      _render3DTimeout = setTimeout(function() {
+        _isRendering3D = true;
+        try {
+          const container = document.getElementById('three-container');
+          container.style.display = 'block';
+          renderBuildings(container, currentConfig);
+          updateTourUI();
+        } finally {
+          _isRendering3D = false;
+        }
+      }, 100);
     }
+
+    // Tour UI management
+    function updateTourUI() {
+      const tourControls = document.getElementById('tour-controls');
+      const tourAnnotation = document.getElementById('tour-annotation');
+      const tourBtn = document.getElementById('tour-start-btn');
+      const state = getViewerState().tourState;
+
+      if (!state || !state.active) {
+        tourControls.style.display = 'none';
+        tourAnnotation.style.display = 'none';
+        if (tourBtn) tourBtn.classList.remove('active');
+        return;
+      }
+
+      tourControls.style.display = 'flex';
+      tourAnnotation.style.display = '';
+      if (tourBtn) tourBtn.classList.add('active');
+
+      const step = state.steps[state.currentStep];
+      document.getElementById('tour-title').textContent = step.title;
+      document.getElementById('tour-description').textContent = step.description;
+      document.getElementById('tour-indicator').textContent = (state.currentStep + 1) + ' / ' + state.steps.length;
+
+      document.getElementById('tour-prev').disabled = state.currentStep === 0;
+      document.getElementById('tour-next').disabled = state.currentStep === state.steps.length - 1;
+    }
+
+    // Tour button handlers
+    document.getElementById('tour-start-btn').addEventListener('click', function() {
+      const state = getViewerState().tourState;
+      if (state && state.active) {
+        endTour();
+        updateTourUI();
+      } else {
+        startTour(currentConfig);
+        updateTourUI();
+      }
+    });
+
+    document.getElementById('tour-prev').addEventListener('click', function() {
+      const state = getViewerState().tourState;
+      if (state && state.active && !state.animating) {
+        advanceTour(state, -1);
+        goToTourStep(state.currentStep);
+        updateTourUI();
+      }
+    });
+
+    document.getElementById('tour-next').addEventListener('click', function() {
+      const state = getViewerState().tourState;
+      if (state && state.active && !state.animating) {
+        advanceTour(state, 1);
+        goToTourStep(state.currentStep);
+        updateTourUI();
+      }
+    });
 
     // --- Init ---
     syncControlsToConfig();

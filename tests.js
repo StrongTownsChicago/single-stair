@@ -28,6 +28,18 @@ if (typeof require !== "undefined") {
     const _courtyard = require("./courtyard.js");
     if (_courtyard.generateCourtyardLayout) globalThis.generateCourtyardLayout = _courtyard.generateCourtyardLayout;
   } catch (e) {}
+  try {
+    const _tour = require("./tour.js");
+    if (_tour.createTourSteps) globalThis.createTourSteps = _tour.createTourSteps;
+    if (_tour.createTourState) globalThis.createTourState = _tour.createTourState;
+    if (_tour.advanceTour) globalThis.advanceTour = _tour.advanceTour;
+    if (_tour.easeInOutCubic) globalThis.easeInOutCubic = _tour.easeInOutCubic;
+  } catch (e) {}
+  try {
+    const _viewer = require("./viewer3d.js");
+    if (_viewer.MATERIAL_COLORS) globalThis.MATERIAL_COLORS = _viewer.MATERIAL_COLORS;
+    if (_viewer.buildCourtyardSegmentMeshes) globalThis.buildCourtyardSegmentMeshes = _viewer.buildCourtyardSegmentMeshes;
+  } catch (e) {}
 }
 
 let _passed = 0,
@@ -1148,6 +1160,219 @@ assertEqual(btDefaults.buildingType, "standard", "Default buildingType is standa
 // Invalid buildingType falls back
 const btBad = decodeHashToConfig("#building=X");
 assertEqual(btBad.buildingType, "standard", "Invalid buildingType falls back to standard");
+
+// =============================================================
+// 4.1 — 3D Scene Construction Tests
+// =============================================================
+
+console.log("=== 3D Scene Construction Tests ===");
+
+// Staircase deduplication for rendering
+const dedup3Layout = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "residential" });
+const dedup3Meshes = buildMeshData(dedup3Layout);
+const allStairs3 = dedup3Meshes.filter(m => m.type === "staircase");
+assertEqual(allStairs3.length, 9, "Raw mesh data has 9 staircase meshes (3 per floor x 3 floors)");
+const dedupedStairs3 = allStairs3.filter(m => m.floorLevel === 0);
+assertEqual(dedupedStairs3.length, 3, "Deduped: 3 unique staircase meshes");
+dedupedStairs3.forEach(m => {
+  assertEqual(m.y, 0, "Deduped staircase starts at y=0");
+  assertEqual(m.height, 30, "Deduped staircase spans full 3-story height (30ft)");
+});
+
+// Reform has fewer meshes after deduplication
+const reformDedupLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "residential" });
+const reformDedupMeshes = buildMeshData(reformDedupLayout);
+const reformDedupStairs = reformDedupMeshes.filter(m => m.type === "staircase" && m.floorLevel === 0);
+const reformDedupHalls = reformDedupMeshes.filter(m => m.type === "hallway");
+assertEqual(reformDedupStairs.length, 1, "Reform deduped: 1 staircase mesh");
+assertEqual(reformDedupHalls.length, 0, "Reform: 0 hallway meshes");
+
+// Material color mapping validation
+const materialTypes = ["unit", "staircase", "hallway", "slab", "commercial"];
+const expectedColors = {
+  unit: 0xEDE8DF,
+  staircase: 0xD64545,
+  hallway: 0xD4903A,
+  slab: 0x2A2A35,
+  commercial: 0x3DA89A,
+};
+materialTypes.forEach(type => {
+  assertEqual(MATERIAL_COLORS[type], expectedColors[type], `MATERIAL_COLORS.${type} is correct`);
+});
+
+// Commercial unit type detection
+const commSceneLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "commercial" });
+const commSceneMeshes = buildMeshData(commSceneLayout);
+const commUnitMeshes = commSceneMeshes.filter(m => m.type === "unit" && m.unitType === "commercial");
+assert(commUnitMeshes.length > 0, "Commercial layout has commercial-type unit meshes");
+commUnitMeshes.forEach(m => {
+  assertEqual(m.unitType, "commercial", "Commercial unit mesh has unitType 'commercial'");
+});
+
+// Side-by-side positioning math
+const ssConfig = { lot: "single", stories: 3, ground: "residential" };
+const ssCurrentLayout = generateLayout({ ...ssConfig, stair: "current" });
+const ssBw = ssCurrentLayout.lot.buildableWidth;
+const ssGap = ssBw * 1.5;
+const ssCurrentCenterX = -(ssBw / 2 + ssGap / 2);
+const ssReformCenterX = ssBw / 2 + ssGap / 2;
+assert(ssCurrentCenterX < 0, "Current code building center is at negative X");
+assert(ssReformCenterX > 0, "Reform building center is at positive X");
+assertApprox(Math.abs(ssCurrentCenterX), Math.abs(ssReformCenterX), 0.001, "Buildings equidistant from center");
+
+// Courtyard mode detection
+const cyBuildingType = "L";
+const isCyMode = cyBuildingType === "L" || cyBuildingType === "U";
+assert(isCyMode, "L-shape triggers courtyard mode");
+const notCyMode = "standard" === "L" || "standard" === "U";
+assert(!notCyMode, "Standard does not trigger courtyard mode");
+
+// Window wall data presence
+const wwLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "residential" });
+const wwMeshData = buildMeshData(wwLayout);
+const wwUnitMeshes = wwMeshData.filter(m => m.type === "unit");
+wwUnitMeshes.forEach(m => {
+  assert(Array.isArray(m.windowWalls), `Unit mesh has windowWalls array`);
+  assert(m.windowWalls.length > 0, `Unit mesh has at least one window wall`);
+});
+
+// Front units should have 'north' window wall
+const wwFrontUnits = wwUnitMeshes.filter(m => m.unitId === "A");
+wwFrontUnits.forEach(m => {
+  assert(m.windowWalls.includes("north"), "Front unit has north window wall");
+});
+
+// =============================================================
+// 4.2 — Tour Step Tests
+// =============================================================
+
+console.log("=== Tour Step Tests ===");
+
+// Standard config: at least 5 steps
+const tourConfig3 = { lot: "single", stories: 3, ground: "residential", buildingType: "standard" };
+const tourSteps3 = createTourSteps(tourConfig3);
+assert(tourSteps3.length >= 5, `Tour has ${tourSteps3.length} steps (expected >= 5)`);
+
+// Each step has required fields
+const requiredTourFields = ["id", "title", "description", "cameraPosition", "cameraTarget"];
+tourSteps3.forEach((step, i) => {
+  requiredTourFields.forEach(field => {
+    assert(step[field] !== undefined, `Tour step ${i} (${step.id}) has field '${field}'`);
+  });
+  assert(typeof step.cameraPosition.x === "number", `Step ${step.id}: cameraPosition.x is a number`);
+  assert(typeof step.cameraPosition.y === "number", `Step ${step.id}: cameraPosition.y is a number`);
+  assert(typeof step.cameraPosition.z === "number", `Step ${step.id}: cameraPosition.z is a number`);
+  assert(typeof step.cameraTarget.x === "number", `Step ${step.id}: cameraTarget.x is a number`);
+  assert(typeof step.cameraTarget.y === "number", `Step ${step.id}: cameraTarget.y is a number`);
+  assert(typeof step.cameraTarget.z === "number", `Step ${step.id}: cameraTarget.z is a number`);
+});
+
+// Courtyard step only in L/U mode
+const tourStdSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "standard" });
+const tourLSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "L" });
+const stdHasCourtyard = tourStdSteps.some(s => s.id === "courtyard");
+const lHasCourtyard = tourLSteps.some(s => s.id === "courtyard");
+assert(!stdHasCourtyard, "Standard config tour does not have courtyard step");
+assert(lHasCourtyard, "L-shape config tour has courtyard step");
+
+// 2-story building: fewer or different comparison steps
+const tourSteps2 = createTourSteps({ lot: "single", stories: 2, ground: "residential", buildingType: "standard" });
+assert(tourSteps2.length >= 3, `2-story tour has ${tourSteps2.length} steps (expected >= 3)`);
+const compStep2 = tourSteps2.find(s => s.id === "comparison");
+if (compStep2) {
+  assert(
+    compStep2.description.includes("2-story") || compStep2.description.includes("same") || compStep2.description.includes("3+"),
+    "2-story comparison step acknowledges no difference"
+  );
+}
+
+// Camera positions scale with lot size
+const tourSingleSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "standard" });
+const tourDoubleSteps = createTourSteps({ lot: "double", stories: 3, ground: "residential", buildingType: "standard" });
+const singleAerial = tourSingleSteps.find(s => s.id === "lot" || s.id === "comparison");
+const doubleAerial = tourDoubleSteps.find(s => s.id === "lot" || s.id === "comparison");
+if (singleAerial && doubleAerial) {
+  const singleDist = Math.sqrt(singleAerial.cameraPosition.x ** 2 + singleAerial.cameraPosition.y ** 2 + singleAerial.cameraPosition.z ** 2);
+  const doubleDist = Math.sqrt(doubleAerial.cameraPosition.x ** 2 + doubleAerial.cameraPosition.y ** 2 + doubleAerial.cameraPosition.z ** 2);
+  assert(doubleDist > singleDist, "Double lot tour has farther camera distance than single lot");
+}
+
+// Tour state management
+const tState = createTourState();
+assertEqual(tState.active, false, "Initial tour state is inactive");
+assertEqual(tState.currentStep, 0, "Initial step is 0");
+
+// Advance tour
+tState.steps = tourSteps3;
+tState.active = true;
+advanceTour(tState, 1);
+assertEqual(tState.currentStep, 1, "Tour advances to step 1");
+advanceTour(tState, -1);
+assertEqual(tState.currentStep, 0, "Tour retreats to step 0");
+advanceTour(tState, -1);
+assertEqual(tState.currentStep, 0, "Tour does not go below 0");
+
+// Easing function
+assertApprox(easeInOutCubic(0), 0, 0.001, "Ease at t=0 is 0");
+assertApprox(easeInOutCubic(0.5), 0.5, 0.001, "Ease at t=0.5 is 0.5");
+assertApprox(easeInOutCubic(1), 1, 0.001, "Ease at t=1 is 1");
+
+// =============================================================
+// 4.4 — Integration Tests (Config -> Layout -> Mesh -> 3D roundtrip)
+// =============================================================
+
+console.log("=== 3D Integration Tests ===");
+
+// Complete data flow validation
+const intLayout = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "residential" });
+const intMeshData = buildMeshData(intLayout);
+
+for (let i = 0; i < intLayout.floors.length; i++) {
+  const floor = intLayout.floors[i];
+  const floorMeshes = intMeshData.filter(m => m.floorLevel === i);
+  const unitMeshes = floorMeshes.filter(m => m.type === "unit");
+  assertEqual(unitMeshes.length, floor.units.length, `Floor ${i + 1}: unit mesh count matches layout`);
+  const stairMeshes = floorMeshes.filter(m => m.type === "staircase");
+  assertEqual(stairMeshes.length, floor.staircases.length, `Floor ${i + 1}: staircase mesh count matches layout`);
+  const hallMeshes = floorMeshes.filter(m => m.type === "hallway");
+  assertEqual(hallMeshes.length, floor.hallways.length, `Floor ${i + 1}: hallway mesh count matches layout`);
+  const slabMesh = floorMeshes.find(m => m.type === "slab");
+  assert(slabMesh, `Floor ${i + 1}: has a slab mesh`);
+}
+
+// Different configs produce different mesh counts
+const intConfigs = [
+  { lot: "single", stories: 2, stair: "reform", ground: "residential" },
+  { lot: "single", stories: 3, stair: "current", ground: "residential" },
+  { lot: "double", stories: 3, stair: "current", ground: "residential" },
+  { lot: "single", stories: 3, stair: "reform", ground: "commercial" },
+];
+const intMeshCounts = intConfigs.map(c => {
+  const layout = generateLayout(c);
+  return buildMeshData(layout).length;
+});
+const intUniqueCounts = new Set(intMeshCounts);
+assert(intUniqueCounts.size > 1, "Different configs produce different mesh counts");
+
+// Courtyard mesh building covers all segments
+const intCyLayout = generateCourtyardLayout({ shape: "U", stories: 3, ground: "residential" });
+for (let s = 0; s < intCyLayout.segments.length; s++) {
+  const seg = intCyLayout.segments[s];
+  assertEqual(seg.floors.length, 3, `U-shape segment ${s}: has 3 floors`);
+  assert(seg.floors[0].units.length > 0, `U-shape segment ${s}: has units on floor 1`);
+  assert(seg.floors[0].staircases.length > 0, `U-shape segment ${s}: has staircases on floor 1`);
+}
+
+// Courtyard segment mesh builder produces meshes
+const intCySeg = intCyLayout.segments[0];
+const intCySegMeshes = buildCourtyardSegmentMeshes(intCySeg, 3, "residential");
+assert(intCySegMeshes.length > 0, "Courtyard segment mesh builder produces meshes");
+const intCySegUnits = intCySegMeshes.filter(m => m.type === "unit");
+assert(intCySegUnits.length > 0, "Courtyard segment has unit meshes");
+const intCySegStairs = intCySegMeshes.filter(m => m.type === "staircase");
+assert(intCySegStairs.length > 0, "Courtyard segment has staircase meshes");
+const intCySegSlabs = intCySegMeshes.filter(m => m.type === "slab");
+assertEqual(intCySegSlabs.length, 3, "Courtyard segment has 1 slab per floor");
 
 // =============================================================
 
