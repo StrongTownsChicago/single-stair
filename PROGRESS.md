@@ -1,10 +1,10 @@
 # Single Stair Visualizer — Build Progress
 
-## Current Status: Code Accuracy Fix Complete
+## Current Status: 3D View Complete
 
-**Test suite: 385 passed, 0 failed**
+**Test suite: 517 passed, 0 failed**
 
-The 2D floor plan comparator is fully functional with accurate building code modeling. The most recent work fixed two factual inaccuracies in how the visualizer models Chicago's staircase requirements (documented in `STAIRCASE-CODE-ACCURACY.md`). The remaining work is the 3D view (Three.js), guided tour, and STL export.
+Both the 2D floor plan comparator and the 3D view are fully functional. The 3D view uses Three.js to render side-by-side current-code vs reform buildings with orbit controls and a guided tour. All configurations (lot types, stories, ground floor, building type) update the 3D view in real time.
 
 ---
 
@@ -62,7 +62,7 @@ The 2D floor plan comparator is fully functional with accurate building code mod
 - Full single-page app with dark theme matching STC brand
 - Hero section: "What If Chicago Allowed Single Stair Buildings?" with key stats
 - Control panel: lot type dropdown, stories button group (2/3/4), ground floor dropdown, building type dropdown (Standard Block / L-Shape Courtyard / U-Shape Courtyard)
-- Tab bar: Floor Plan | 3D View
+- Tab bar: Floor Plan | 3D View (fully functional)
 - Color legend bar
 - Floor selector buttons with keyboard navigation (arrow keys)
 - Defaults to Floor 3 (where reform impact is visible)
@@ -72,15 +72,36 @@ The 2D floor plan comparator is fully functional with accurate building code mod
 - Courtyard mode: when L-Shape or U-Shape selected, shows centered courtyard layout with feature cards
 - Per-floor comparison table and whole-building summary table
 - Tooltip on hover for units, staircases, and window walls
+- 3D View tab: Three.js r128 + OrbitControls from CDN, Guided Tour button, tour controls overlay, 3D re-render on config change, keyboard navigation guard during tour
 - Responsive layout (stacks on mobile)
-- Print stylesheet (clean B&W)
+- Print stylesheet (clean B&W, excludes 3D tab)
 - URL hash state management with back/forward support
 - Fonts: DM Serif Display + Instrument Sans + JetBrains Mono from Google Fonts CDN
 - Footer: key facts grid, irony callout, peer cities, CTA with STC/AHI links, safety badge
 
-### Stage 2: Partial (Data Layer Complete, 3D View Pending)
+### Stage 2: 3D View & Guided Tour (COMPLETE)
 
-#### 2.2-2.3 Mesh Data — `mesh.js`
+#### 2.1 Three.js 3D Viewer — `viewer3d.js`
+- `initScene(container)` — Creates Three.js scene with dark background, ambient + directional lighting, ground plane
+- Builds both current-code and reform buildings side-by-side from mesh data, colored by type
+- Canvas-based sprite labels ("Current Code" in orange, "Reform" in green) above each building
+- Window wall edge highlighting with gold outlines
+- Staircase deduplication (stair shafts rendered once spanning full building height, not per-floor)
+- Courtyard rendering: single centered building with green courtyard plane for L/U building types
+- Hybrid render loop: active during orbit interaction, idles after 2 seconds
+- OrbitControls for rotate/zoom/pan; camera starts at 3/4 aerial angle
+- ResizeObserver for responsive canvas sizing
+- WebGL context reuse and memory-safe cleanup on re-render
+
+#### 2.2 Guided Tour — `tour.js`
+- `createTourSteps(config)` — Generates data-driven tour steps scaled to building dimensions
+- `createTourState()` + `advanceTour()` — State machine for tour progression
+- `animateCamera()` — Smooth camera transitions with ease-in-out cubic interpolation
+- 5 steps for standard buildings (overview, current code, reform, comparison, conclusion); courtyard step conditional on L/U type
+- 2-story building handling (adjusted messaging)
+- Tour UI: annotation overlay with title/description, step indicator, prev/next buttons
+
+#### 2.3-2.4 Mesh Data — `mesh.js`
 - `buildMeshData(layout)` — Converts layout to array of mesh descriptors
 - Each mesh has: `{type, x, y, z, width, height, depth, floorLevel, ...}`
 - Unit meshes: one per unit per floor, height = floor height (10ft residential, 14ft commercial)
@@ -141,24 +162,6 @@ Documented in `STAIRCASE-CODE-ACCURACY.md`. Two factual inaccuracies were identi
 
 ## What Remains To Be Done
 
-### 3D View Integration (Stage 2 — `index.html`)
-
-The `index.html` currently has a placeholder for the 3D tab ("3D view -- Stage 2 (coming soon)"). It needs:
-
-1. **Add Three.js** from CDN: `<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>`
-2. **Add OrbitControls** (also from CDN or inline)
-3. **Implement `render3D()` function** that:
-   - Creates a Three.js scene with dark background
-   - Adds ambient + directional lighting
-   - Adds ground plane with grid showing lot boundaries
-   - Calls `buildMeshData()` for both current and reform layouts
-   - Creates box geometries from mesh descriptors, colored by type
-   - Places both buildings side-by-side in the scene with labels
-   - Sets up OrbitControls for rotate/zoom/pan
-   - Camera starts at 3/4 aerial angle
-4. **Guided tour mode** (presentation stepper): step-by-step walkthrough with camera animations
-5. **STL export**: client-side STL generation for 3D printing
-
 ### Stage 3: Enhancements (Post-Launch)
 
 - Real address lookup (Chicago GIS APIs)
@@ -179,14 +182,16 @@ single-stair-visualizer/
 ├── ADVOCACY-REDESIGN-PLAN.md         # Earlier plan: room detail, bedroom formula, page redesign
 ├── Brief on Approaching [...].pdf    # 8-page STC brief for Alderman Matt Martin (reference)
 ├── Single Stair One Pager.pdf        # 1-page STC policy one-pager (reference)
-├── index.html                        # Main app (Stage 1 complete, Stage 2 3D pending)
+├── index.html                        # Main app (Stage 1 + Stage 2 complete)
 ├── layout.js                         # Layout engine (generateLayout + 5 floor generators)
 ├── renderer.js                       # SVG renderer (renderFloorPlanSVG, renderComparator, renderCourtyardSVG)
 ├── stats.js                          # Stats calculator (computeStats)
 ├── state.js                          # URL hash state (encodeConfigToHash, decodeHashToConfig)
-├── mesh.js                           # 3D mesh data builder (buildMeshData) — data only, no Three.js yet
+├── mesh.js                           # 3D mesh data builder (buildMeshData)
 ├── courtyard.js                      # Courtyard layout engine (generateCourtyardLayout)
-├── tests.js                          # Full test suite (385 tests)
+├── viewer3d.js                       # Three.js 3D scene manager (initScene, cleanup, render loop)
+├── tour.js                           # Guided tour (createTourSteps, animateCamera, state management)
+├── tests.js                          # Full test suite (517 tests)
 ├── test-runner.html                  # Browser test runner
 └── run-tests.sh                      # Node test runner script (WSL)
 ```
@@ -257,11 +262,22 @@ if (typeof require !== "undefined") {
 | Building-level stair consistency | ~80 | 3.1b tests (stair/hallway consistency, floor matching, 2-story check, reform check, commercial exception, delta on every floor, no overlaps, area conservation) |
 | Courtyard SVG renderer | 4 | 3.2 tests |
 | URL state buildingType | 3 | 3.3 tests |
-| **Total** | **385** | |
+| 3D scene construction | ~20 | 4.1 tests |
+| Tour steps | ~15 | 4.2 tests |
+| 3D integration | ~12 | 4.4 tests |
+| **Total** | **517** | |
 
 ---
 
 ## Changelog
+
+### 2026-02-16: 3D View & Guided Tour
+- Added Three.js 3D viewer with side-by-side building comparison (`viewer3d.js`)
+- Added guided tour with smooth camera animations and annotation overlay (`tour.js`)
+- Wired 3D tab in `index.html` with OrbitControls, tour UI, action buttons
+- Real-time 3D re-render on config change
+- Courtyard mode renders single centered building with green courtyard plane
+- Added 132 new tests for scene construction, tour steps, and integration (385 -> 517)
 
 ### 2026-02-16: Code Accuracy Fix
 - Fixed stair-count logic from per-floor to per-building (`layout.js`)
