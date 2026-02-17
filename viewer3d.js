@@ -12,43 +12,73 @@ var _resizeObserver = null;
 var _animationFrameId = null;
 var _tourState = null;
 
-// Color palette matching the 2D renderer and CSS design tokens
+// ── Architectural color palette ─────────────────────────────────────────────
 var MATERIAL_COLORS = {
-  unit: 0xEDE8DF,
-  staircase: 0xD64545,
-  hallway: 0xD4903A,
-  slab: 0x2A2A35,
-  commercial: 0x3DA89A,
-  courtyard: 0x86efac,
-  windowEdge: 0xD9B84A,
+  unit: 0xF0EBE1,        // Warm plaster / limestone
+  staircase: 0xBF5B4B,   // Muted terracotta
+  hallway: 0xC4B5A5,     // Warm taupe
+  slab: 0xCCC7BF,        // Concrete
+  commercial: 0x4FA393,   // Sage teal
+  courtyard: 0x7AD4A0,   // Soft green
+  windowEdge: 0xD4A843,  // Warm gold
+  edge: 0x6E6A64,        // Architectural edge lines
 };
 
 var MATERIAL_OPACITY = {
-  unit: 0.95,
-  staircase: 0.85,
-  hallway: 0.65,
-  slab: 0.90,
-  commercial: 0.90,
+  unit: 1.0,
+  staircase: 1.0,
+  hallway: 0.92,
+  slab: 1.0,
+  commercial: 1.0,
+};
+
+var MATERIAL_ROUGHNESS = {
+  unit: 0.88,
+  staircase: 0.72,
+  hallway: 0.90,
+  slab: 0.95,
+  commercial: 0.68,
 };
 
 // Material cache to reduce draw calls
 var _materialCache = {};
+var _edgeMaterialCache = null;
 
 function getMaterial(type) {
   if (_materialCache[type]) return _materialCache[type];
 
-  var color = MATERIAL_COLORS[type] || 0xEDE8DF;
+  var color = MATERIAL_COLORS[type] || 0xF0EBE1;
   var opacity = MATERIAL_OPACITY[type] || 1.0;
+  var roughness = MATERIAL_ROUGHNESS[type] || 0.8;
   var transparent = opacity < 1.0;
 
-  var mat = new THREE.MeshLambertMaterial({
+  var mat = new THREE.MeshStandardMaterial({
     color: color,
+    roughness: roughness,
+    metalness: 0.02,
     transparent: transparent,
     opacity: opacity,
   });
 
   _materialCache[type] = mat;
   return mat;
+}
+
+function getEdgeMaterial() {
+  if (_edgeMaterialCache) return _edgeMaterialCache;
+  _edgeMaterialCache = new THREE.LineBasicMaterial({
+    color: MATERIAL_COLORS.edge,
+    transparent: true,
+    opacity: 0.45,
+  });
+  return _edgeMaterialCache;
+}
+
+function addEdgeLines(group, geometry, position) {
+  var edgesGeo = new THREE.EdgesGeometry(geometry);
+  var edgeLines = new THREE.LineSegments(edgesGeo, getEdgeMaterial());
+  edgeLines.position.copy(position);
+  group.add(edgeLines);
 }
 
 function createTextSprite(text, color) {
@@ -106,12 +136,15 @@ function buildBuildingGroup(meshData, label) {
     var mesh = new THREE.Mesh(geometry, material);
 
     // Position: center of the box in Three.js coordinates
-    // mesh.x -> Three.js x, mesh.y -> Three.js y (up), mesh.z -> Three.js z
     mesh.position.set(
       meshDesc.x + meshDesc.width / 2 - centerX,
       meshDesc.y + meshDesc.height / 2,
       meshDesc.z + meshDesc.depth / 2 - centerZ
     );
+
+    // Enable shadows
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
 
     mesh.userData = {
       type: meshDesc.type,
@@ -121,6 +154,11 @@ function buildBuildingGroup(meshData, label) {
     };
 
     group.add(mesh);
+
+    // Architectural edge lines (skip slabs — too thin, would be noisy)
+    if (meshDesc.type !== "slab") {
+      addEdgeLines(group, geometry, mesh.position);
+    }
 
     // Add window wall edge highlights for unit meshes
     if (meshDesc.type === "unit" && meshDesc.windowWalls && meshDesc.windowWalls.length > 0) {
@@ -140,7 +178,10 @@ function buildBuildingGroup(meshData, label) {
 }
 
 function addWindowEdges(group, meshDesc, centerX, centerZ) {
-  var edgeMaterial = new THREE.LineBasicMaterial({ color: MATERIAL_COLORS.windowEdge, linewidth: 2 });
+  var edgeMaterial = new THREE.LineBasicMaterial({
+    color: MATERIAL_COLORS.windowEdge,
+    linewidth: 2,
+  });
 
   for (var w = 0; w < meshDesc.windowWalls.length; w++) {
     var wall = meshDesc.windowWalls[w];
@@ -194,21 +235,24 @@ function addWindowEdges(group, meshDesc, centerX, centerZ) {
 }
 
 function addGroundPlane(scene, width, depth) {
-  var geometry = new THREE.PlaneGeometry(width * 1.5, depth * 1.5);
-  var material = new THREE.MeshLambertMaterial({
-    color: 0x1A1E28,
-    transparent: true,
-    opacity: 0.6,
-  });
-  var plane = new THREE.Mesh(geometry, material);
-  plane.rotation.x = -Math.PI / 2;
-  plane.position.y = -0.1;
-  plane.receiveShadow = true;
-  scene.add(plane);
+  var planeSize = Math.max(width, depth) * 6;
 
-  // Grid lines
-  var gridHelper = new THREE.GridHelper(Math.max(width, depth) * 2, 20, 0x2A2D35, 0x1E2128);
+  // Shadow-only ground — invisible except where shadows fall, blends perfectly
+  var shadowGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+  var shadowMat = new THREE.ShadowMaterial({ opacity: 0.5 });
+  var shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.y = -0.1;
+  shadowPlane.receiveShadow = true;
+  scene.add(shadowPlane);
+
+  // Subtle grid — very faint architectural reference lines
+  var gridSize = Math.max(width, depth) * 2;
+  var gridDivisions = Math.round(gridSize / 10);
+  var gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x2A2E38, 0x20242E);
   gridHelper.position.y = -0.05;
+  gridHelper.material.transparent = true;
+  gridHelper.material.opacity = 0.25;
   scene.add(gridHelper);
 }
 
@@ -218,30 +262,62 @@ function setupScene(container) {
 
   // Scene
   var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x10131A);
+  scene.background = new THREE.Color(0x141820);
+
+  // Atmospheric fog (matches background, fades distant elements)
+  scene.fog = new THREE.FogExp2(0x141820, 0.005);
 
   // Camera
   var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
 
-  // Renderer (reuse if exists)
+  // Renderer (reuse if exists to avoid WebGL context leaks)
   if (!_renderer) {
     _renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(_renderer.domElement);
+
+    // Shadow configuration
+    _renderer.shadowMap.enabled = true;
+    _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Tone mapping for cinematic color
+    _renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    _renderer.toneMappingExposure = 1.0;
+    _renderer.outputEncoding = THREE.sRGBEncoding;
   }
   _renderer.setSize(width, height);
 
-  // Lights
-  var ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
-  scene.add(ambientLight);
+  // ── Lighting ──────────────────────────────────────────────────────────────
 
-  var directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(50, 80, 60);
-  scene.add(directionalLight);
+  // Hemisphere light: warm sky, cool ground — natural ambient
+  var hemiLight = new THREE.HemisphereLight(0xF5E6D0, 0x3A4050, 0.55);
+  scene.add(hemiLight);
 
-  var fillLight = new THREE.DirectionalLight(0x8899bb, 0.25);
-  fillLight.position.set(-30, 40, -40);
+  // Key directional light (warm) with shadows
+  var keyLight = new THREE.DirectionalLight(0xFFF4E6, 0.85);
+  keyLight.position.set(50, 80, 60);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.width = 2048;
+  keyLight.shadow.mapSize.height = 2048;
+  keyLight.shadow.camera.near = 1;
+  keyLight.shadow.camera.far = 300;
+  keyLight.shadow.camera.left = -120;
+  keyLight.shadow.camera.right = 120;
+  keyLight.shadow.camera.top = 120;
+  keyLight.shadow.camera.bottom = -120;
+  keyLight.shadow.bias = -0.0005;
+  keyLight.shadow.normalBias = 0.02;
+  scene.add(keyLight);
+
+  // Fill light (cool) — softer, from opposite side
+  var fillLight = new THREE.DirectionalLight(0xB0C4DE, 0.3);
+  fillLight.position.set(-40, 50, -30);
   scene.add(fillLight);
+
+  // Rim / back light — subtle edge definition
+  var rimLight = new THREE.DirectionalLight(0xE8DCD0, 0.2);
+  rimLight.position.set(-20, 30, 80);
+  scene.add(rimLight);
 
   // OrbitControls
   var controls = new THREE.OrbitControls(camera, _renderer.domElement);
@@ -337,6 +413,7 @@ function renderBuildings(container, config) {
 
   // Clear material cache (sprites have unique textures)
   _materialCache = {};
+  _edgeMaterialCache = null;
 
   // Ensure container is visible and has dimensions
   container.style.display = "block";
@@ -488,15 +565,26 @@ function renderCourtyardBuilding(scene, camera, config, buildingType) {
         meshDesc.z + meshDesc.depth / 2 - centerZ
       );
 
+      // Enable shadows
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
       courtyardGroup.add(mesh);
+
+      // Architectural edge lines (skip slabs)
+      if (meshDesc.type !== "slab") {
+        addEdgeLines(courtyardGroup, geometry, mesh.position);
+      }
     }
   }
 
   // Courtyard ground plane (green)
   var cb = cyLayout.courtyard.bounds;
   var cyGeometry = new THREE.PlaneGeometry(cb.w, cb.d);
-  var cyMaterial = new THREE.MeshLambertMaterial({
+  var cyMaterial = new THREE.MeshStandardMaterial({
     color: MATERIAL_COLORS.courtyard,
+    roughness: 0.9,
+    metalness: 0.0,
     transparent: true,
     opacity: 0.4,
   });
@@ -507,6 +595,7 @@ function renderCourtyardBuilding(scene, camera, config, buildingType) {
     0.1,
     cb.y + cb.d / 2 - centerZ
   );
+  cyPlane.receiveShadow = true;
   courtyardGroup.add(cyPlane);
 
   // Label

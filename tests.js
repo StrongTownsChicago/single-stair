@@ -1190,11 +1190,11 @@ assertEqual(reformDedupHalls.length, 0, "Reform: 0 hallway meshes");
 // Material color mapping validation
 const materialTypes = ["unit", "staircase", "hallway", "slab", "commercial"];
 const expectedColors = {
-  unit: 0xEDE8DF,
-  staircase: 0xD64545,
-  hallway: 0xD4903A,
-  slab: 0x2A2A35,
-  commercial: 0x3DA89A,
+  unit: 0xF0EBE1,
+  staircase: 0xBF5B4B,
+  hallway: 0xC4B5A5,
+  slab: 0xCCC7BF,
+  commercial: 0x4FA393,
 };
 materialTypes.forEach(type => {
   assertEqual(MATERIAL_COLORS[type], expectedColors[type], `MATERIAL_COLORS.${type} is correct`);
