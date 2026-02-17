@@ -26,33 +26,35 @@ function generateLayout(config) {
     buildableDepth: buildableDepth,
   };
 
+  // Determine staircase count for the BUILDING (not per-floor).
+  // Stairway shafts are vertical structures that run from ground to roof —
+  // the same stair layout must apply to every floor.
+  let staircaseCount, needsHallway;
+  if (stair === "reform") {
+    staircaseCount = 1;
+    needsHallway = false;
+  } else {
+    if (stories <= 2) {
+      // 2-story buildings: single stair allowed under current Chicago code
+      staircaseCount = 1;
+      needsHallway = false;
+    } else {
+      // 3+ story buildings: ALL floors get multiple stairs
+      if (lotType === "double") {
+        staircaseCount = 2;
+        needsHallway = true;
+      } else {
+        staircaseCount = 3;
+        needsHallway = true;
+      }
+    }
+  }
+
   const floors = [];
   for (let i = 0; i < stories; i++) {
     const floorLevel = i + 1;
     const isGroundFloor = i === 0;
     const isCommercialGround = isGroundFloor && ground === "commercial";
-
-    // Determine staircase count for this floor
-    // Current code: floors 1-2 get 1 staircase, floor 3+ gets more
-    // Reform: always 1 staircase
-    let staircaseCount, needsHallway;
-    if (stair === "reform") {
-      staircaseCount = 1;
-      needsHallway = false;
-    } else {
-      if (floorLevel <= 2) {
-        staircaseCount = 1;
-        needsHallway = false;
-      } else {
-        if (lotType === "double") {
-          staircaseCount = 2;
-          needsHallway = true;
-        } else {
-          staircaseCount = 3;
-          needsHallway = true;
-        }
-      }
-    }
 
     const floor = generateFloor({
       lot,

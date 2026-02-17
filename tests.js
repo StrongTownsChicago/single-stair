@@ -119,7 +119,7 @@ assertApprox(
 
 console.log("=== Staircase Count Tests ===");
 
-// Current code: floors 1-2 get 1 staircase, floor 3+ gets 3 (single lot) or 2 (double lot)
+// Current code: 3+ story buildings get multiple stairs on ALL floors (stairs run full height)
 const curr_single_3 = generateLayout({
   lot: "single",
   stories: 3,
@@ -128,13 +128,18 @@ const curr_single_3 = generateLayout({
 });
 assertEqual(
   curr_single_3.floors[0].staircases.length,
-  1,
-  "Single lot, current code, floor 1: 1 staircase",
+  3,
+  "Single lot, current code, 3-story, floor 1: 3 staircases (stairs run full height)",
+);
+assertEqual(
+  curr_single_3.floors[1].staircases.length,
+  3,
+  "Single lot, current code, 3-story, floor 2: 3 staircases (stairs run full height)",
 );
 assertEqual(
   curr_single_3.floors[2].staircases.length,
   3,
-  "Single lot, current code, floor 3: 3 staircases",
+  "Single lot, current code, 3-story, floor 3: 3 staircases",
 );
 
 const curr_double_3 = generateLayout({
@@ -144,14 +149,24 @@ const curr_double_3 = generateLayout({
   ground: "residential",
 });
 assertEqual(
+  curr_double_3.floors[0].staircases.length,
+  2,
+  "Double lot, current code, 3-story, floor 1: 2 staircases (stairs run full height)",
+);
+assertEqual(
   curr_double_3.floors[2].staircases.length,
   2,
-  "Double lot, current code, floor 3: 2 staircases",
+  "Double lot, current code, 3-story, floor 3: 2 staircases",
+);
+assertEqual(
+  curr_double_3.floors[0].hallways.length,
+  1,
+  "Double lot, current code, 3-story, floor 1: 1 connecting hallway",
 );
 assertEqual(
   curr_double_3.floors[2].hallways.length,
   1,
-  "Double lot, current code, floor 3: 1 connecting hallway",
+  "Double lot, current code, 3-story, floor 3: 1 connecting hallway",
 );
 
 // Single stair reform: always 1 staircase, no hallways
@@ -958,6 +973,109 @@ for (let i = 0; i < msAllElements.length; i++) {
     );
   }
 }
+
+// =============================================================
+// 3.1b — Building-Level Stair Consistency Tests
+// =============================================================
+
+console.log("=== Building-Level Stair Consistency Tests ===");
+
+// All floors of a 3+ story building must have the same stair count
+for (const lot of ["single", "double", "corner"]) {
+  for (const stories of [3, 4]) {
+    const layout = generateLayout({ lot, stories, stair: "current", ground: "residential" });
+    const floorStairCounts = layout.floors.map(f => f.staircases.length);
+    const allSame = floorStairCounts.every(c => c === floorStairCounts[0]);
+    assert(allSame, `${lot}/${stories}story: all floors have same stair count (${floorStairCounts.join(',')})`);
+  }
+}
+
+// All floors of a 3+ story building must have the same hallway count
+for (const lot of ["single", "double", "corner"]) {
+  for (const stories of [3, 4]) {
+    const layout = generateLayout({ lot, stories, stair: "current", ground: "residential" });
+    const floorHallCounts = layout.floors.map(f => f.hallways.length);
+    const allSame = floorHallCounts.every(c => c === floorHallCounts[0]);
+    assert(allSame, `${lot}/${stories}story: all floors have same hallway count (${floorHallCounts.join(',')})`);
+  }
+}
+
+// Floor 1 layout should match floor 3 layout on 3-story single lot
+const msFloor1 = multiStairLayout.floors[0];
+assertEqual(
+  msFloor1.staircases.length,
+  msFloor3.staircases.length,
+  "3-story single lot: floor 1 stair count matches floor 3",
+);
+assertEqual(
+  msFloor1.hallways.length,
+  msFloor3.hallways.length,
+  "3-story single lot: floor 1 hallway count matches floor 3",
+);
+assertApprox(
+  msFloor1.livableSqft,
+  msFloor3.livableSqft,
+  1,
+  "3-story single lot: floor 1 livable area matches floor 3",
+);
+
+// 2-story buildings still get 1 stair on all floors
+const curr2story = generateLayout({ lot: "single", stories: 2, stair: "current", ground: "residential" });
+assertEqual(curr2story.floors[0].staircases.length, 1, "2-story single lot, floor 1: 1 staircase");
+assertEqual(curr2story.floors[1].staircases.length, 1, "2-story single lot, floor 2: 1 staircase");
+assertEqual(curr2story.floors[0].hallways.length, 0, "2-story single lot, floor 1: 0 hallways");
+
+// Reform always gets 1 stair regardless of building height
+for (const stories of [2, 3, 4]) {
+  const ref = generateLayout({ lot: "single", stories, stair: "reform", ground: "residential" });
+  for (let i = 0; i < stories; i++) {
+    assertEqual(ref.floors[i].staircases.length, 1, `Reform ${stories}story floor ${i+1}: 1 staircase`);
+    assertEqual(ref.floors[i].hallways.length, 0, `Reform ${stories}story floor ${i+1}: 0 hallways`);
+  }
+}
+
+// Commercial ground floor still gets 1 staircase even in 3+ story buildings
+const commCurr3 = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "commercial" });
+assertEqual(commCurr3.floors[0].staircases.length, 1, "Commercial ground floor: 1 staircase (stair shaft exists but retail wraps around)");
+assertEqual(commCurr3.floors[1].staircases.length, 3, "Commercial 3-story, floor 2: 3 staircases");
+assertEqual(commCurr3.floors[2].staircases.length, 3, "Commercial 3-story, floor 3: 3 staircases");
+
+// Delta is now impactful on every floor of a 3+ story building (not just floor 3+)
+for (const lot of ["single", "corner"]) {
+  const c = generateLayout({ lot, stories: 3, stair: "current", ground: "residential" });
+  const r = generateLayout({ lot, stories: 3, stair: "reform", ground: "residential" });
+  for (let i = 0; i < 3; i++) {
+    const cLiv = c.floors[i].units.reduce((s, u) => s + u.sqft, 0);
+    const rLiv = r.floors[i].units.reduce((s, u) => s + u.sqft, 0);
+    const deltaPct = ((rLiv - cLiv) / cLiv) * 100;
+    assert(
+      deltaPct >= 15,
+      `${lot} 3-story floor ${i+1}: reform delta ${deltaPct.toFixed(1)}% >= 15%`,
+    );
+  }
+}
+
+// No overlaps on floor 1 of multi-stair layout
+const msF1AllElements = [...msFloor1.units, ...msFloor1.staircases, ...msFloor1.hallways];
+for (let i = 0; i < msF1AllElements.length; i++) {
+  for (let j = i + 1; j < msF1AllElements.length; j++) {
+    assert(
+      !overlaps(msF1AllElements[i], msF1AllElements[j]),
+      `Multi-stair floor 1: elements ${i} and ${j} must not overlap`,
+    );
+  }
+}
+
+// Area conservation on floor 1 of multi-stair layout
+const msF1UnitArea = msFloor1.units.reduce((s, u) => s + u.sqft, 0);
+const msF1StairArea = msFloor1.staircases.reduce((s, st) => s + st.w * st.d, 0);
+const msF1HallArea = msFloor1.hallways.reduce((s, h) => s + h.w * h.d, 0);
+assertApprox(
+  msF1UnitArea + msF1StairArea + msF1HallArea,
+  msTotalBuildable,
+  20,
+  "Multi-stair floor 1: areas sum to buildable area",
+);
 
 // =============================================================
 // 3.2 — Courtyard SVG Renderer Tests (RED → GREEN with renderer.js changes)

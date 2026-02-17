@@ -807,7 +807,7 @@
     <div class="hero-inner">
       <div class="hero-kicker">Chicago Building Code Reform</div>
       <h1>What If Chicago Allowed<br><span class="accent">Single Stair Buildings?</span></h1>
-      <p class="hero-subtitle">Chicago's building code forces 3 staircases into small apartment buildings above the 2nd floor &mdash; consuming space that could be bedrooms. A single staircase with sprinklers is just as safe, and already legal in Seattle, New York, Honolulu &amp; Austin.</p>
+      <p class="hero-subtitle">Chicago's building code forces 3 staircases into small apartment buildings over 2 stories &mdash; consuming space on every floor that could be bedrooms. A single staircase with sprinklers is just as safe, and already legal in Seattle, New York, Honolulu &amp; Austin.</p>
       <div class="hero-cities">Already adopted by peer cities across the U.S.</div>
     </div>
   </div>
@@ -1038,16 +1038,14 @@
         narrativeHeadline.innerHTML = `This building form is <strong>impossible under current code</strong>. Single stair reform makes ${shapeLabel} courtyard buildings possible — apartments face shared open space with natural light on 3 sides.`;
       } else if (currentConfig.ground === 'commercial' && currentFloorIndex === 0) {
         narrativeHeadline.innerHTML = 'The ground floor retail space is the same under both codes. <strong>Select Floor 3</strong> to see how reform reclaims residential space above.';
-      } else if (currentFloorIndex >= 2) {
+      } else if (currentConfig.stories > 2) {
         const currFloorTemp = current.floors[currentFloorIndex];
         const refFloorTemp = reform.floors[currentFloorIndex];
         const cLiv = currFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
         const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
         const dArea = Math.round(rLiv - cLiv);
         const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-        narrativeHeadline.innerHTML = `Current code forces 3 staircases above floor 2, consuming <strong>${dArea} sf (+${dPct}%)</strong> of livable space per floor that could be bedrooms.`;
-      } else if (currentFloorIndex < 2 && currentConfig.stories > 2) {
-        narrativeHeadline.innerHTML = 'Floors 1-2 already allow a single stair. <strong>Select Floor 3+</strong> to see where reform makes the difference.';
+        narrativeHeadline.innerHTML = `Current code forces 3 staircases into this floor plan, consuming <strong>${dArea} sf (+${dPct}%)</strong> of livable space that could be bedrooms.`;
       } else if (currentConfig.stories <= 2) {
         narrativeHeadline.innerHTML = '2-story buildings already allow a single stair under current code. <strong>Choose 3 or 4 stories</strong> to see the impact of reform.';
       } else {
@@ -1069,7 +1067,7 @@
           <li>Mixed-use "live above, shop below" buildings create <strong>walkable neighborhoods</strong> — but upper-floor inefficiency limits what gets built</li>
           <li>Single stair reform: <strong>1 stair in the corner</strong> leaves maximum retail frontage and reclaims residential space above</li>
         </ul>`;
-      } else if (currentFloorIndex >= 2) {
+      } else if (currentConfig.stories > 2) {
         contextPanel.style.display = '';
         contextPanel.innerHTML = `<ul>
           <li>Fire spread drops from <strong>46% to 2%</strong> with sprinklers + alarms (2024 NFPA study) — single stair buildings are just as safe</li>
@@ -1081,10 +1079,8 @@
 
       // Floor note
       if (!isCourtyardMode) {
-        if (currentFloorIndex < 2 && currentConfig.stories > 2) {
-          floorNote.textContent = 'Floors 1-2: Same under both codes (single stair allowed below 3rd floor)';
-        } else if (currentFloorIndex >= 2) {
-          floorNote.textContent = 'Floor 3+: Current code requires multiple staircases \u2014 this is where reform makes the difference';
+        if (currentConfig.stories > 2) {
+          floorNote.textContent = 'All floors: Current code requires 3 staircases for buildings above 2 stories';
         } else {
           floorNote.textContent = '';
         }
