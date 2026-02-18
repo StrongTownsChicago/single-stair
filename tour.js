@@ -32,8 +32,8 @@ function createTourSteps(config) {
     // Step 2: Current code stairs
     steps.push({
       id: "current-stairs",
-      title: "Under current code, you need 3 staircases",
-      description: "Each stairway shaft runs the full height of the building, consuming space on every floor.",
+      title: "Current code requires 3 stairways",
+      description: "Above the second story, each unit must access two stairways. On a standard lot, that means three shafts running the full height of the building.",
       cameraPosition: { x: -30 * scale, y: 40 * scale, z: 60 * scale },
       cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 },
       highlights: ["staircases-current"],
@@ -42,8 +42,8 @@ function createTourSteps(config) {
     // Step 3: Current code units
     steps.push({
       id: "current-units",
-      title: "That leaves this much space for apartments",
-      description: "2 units per floor squeezed into the remaining space after 3 staircases and hallways.",
+      title: "What's left for apartments",
+      description: "Two units per floor in the remaining space after three stairways and connecting hallways.",
       cameraPosition: { x: -40 * scale, y: 25 * scale, z: 50 * scale },
       cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 },
       highlights: ["units-current"],
@@ -52,8 +52,8 @@ function createTourSteps(config) {
     // Step 4: Reform view
     steps.push({
       id: "reform",
-      title: "With single stair reform...",
-      description: "One staircase with sprinklers. Larger units with more bedrooms. Family-sized apartments.",
+      title: "With single stair reform",
+      description: "One stairway plus sprinklers. Larger units with more bedrooms and natural light, the kind of family-friendly apartments Chicago needs.",
       cameraPosition: { x: 40 * scale, y: 25 * scale, z: 50 * scale },
       cameraTarget: { x: bw / 2 + bw * 0.75, y: totalHeight / 2, z: 0 },
       highlights: ["units-reform"],
@@ -62,8 +62,8 @@ function createTourSteps(config) {
     // Step 5: Side-by-side comparison
     steps.push({
       id: "comparison",
-      title: "Side by side: dramatically more livable space",
-      description: "Same lot, same safety, dramatically better apartments.",
+      title: "Side by side",
+      description: "Same lot, same safety with sprinklers, but significantly more livable space per unit.",
       cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
       cameraTarget: { x: 0, y: totalHeight / 2, z: 0 },
       highlights: ["all"],
@@ -72,8 +72,8 @@ function createTourSteps(config) {
     // 2-story buildings: no reform difference
     steps.push({
       id: "current-stairs",
-      title: "2-story buildings allow a single stair",
-      description: "Under current Chicago code, buildings of 2 stories or fewer already qualify for a single staircase.",
+      title: "2-story buildings already qualify",
+      description: "Chicago's code currently allows second-story units to access a single stairway.",
       cameraPosition: { x: -30 * scale, y: 30 * scale, z: 60 * scale },
       cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 },
       highlights: ["staircases-current"],
@@ -81,8 +81,8 @@ function createTourSteps(config) {
 
     steps.push({
       id: "comparison",
-      title: "2-story: same layout under both codes",
-      description: "The real impact of reform is on 3+ story buildings where 3 staircases are currently required.",
+      title: "Same layout at 2 stories",
+      description: "The impact of reform shows up at 3+ stories, where current code requires three stairways on a standard lot.",
       cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
       cameraTarget: { x: 0, y: totalHeight / 2, z: 0 },
       highlights: ["all"],
