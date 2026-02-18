@@ -171,8 +171,8 @@ assertEqual(
 );
 assertEqual(
   reform_single_3.floors[2].hallways.length,
-  0,
-  "Single lot, reform, floor 3: 0 hallways",
+  1,
+  "Single lot, reform, floor 3: 1 hallway (landing)",
 );
 
 // 2-story buildings: no difference between current and reform
@@ -287,6 +287,7 @@ for (const config of [curr_single_3, reform_single_3, curr_double_3]) {
       for (let j = i + 1; j < allElements.length; j++) {
         const kinds = [allElements[i]._kind, allElements[j]._kind].sort().join("-");
         if (kinds === "staircase-unit") continue;
+        if (kinds === "hallway-staircase") continue; // stair shaft passes through its landing
         assert(
           !overlaps(allElements[i], allElements[j]),
           `Floor ${floor.level}: elements ${i} and ${j} must not overlap`,
@@ -801,14 +802,14 @@ assertApprox(
 const curr2story = generateLayout({ lot: "single", stories: 2, stair: "current" });
 assertEqual(curr2story.floors[0].staircases.length, 1, "2-story single lot, floor 1: 1 staircase");
 assertEqual(curr2story.floors[1].staircases.length, 1, "2-story single lot, floor 2: 1 staircase");
-assertEqual(curr2story.floors[0].hallways.length, 0, "2-story single lot, floor 1: 0 hallways");
+assertEqual(curr2story.floors[0].hallways.length, 1, "2-story single lot, floor 1: 1 hallway (landing)");
 
 // Reform always gets 1 stair regardless of building height
 for (const stories of [2, 3, 4]) {
   const ref = generateLayout({ lot: "single", stories, stair: "reform" });
   for (let i = 0; i < stories; i++) {
     assertEqual(ref.floors[i].staircases.length, 1, `Reform ${stories}story floor ${i+1}: 1 staircase`);
-    assertEqual(ref.floors[i].hallways.length, 0, `Reform ${stories}story floor ${i+1}: 0 hallways`);
+    assertEqual(ref.floors[i].hallways.length, 1, `Reform ${stories}story floor ${i+1}: 1 hallway (landing)`);
   }
 }
 
@@ -873,7 +874,7 @@ const reformDedupMeshes = buildMeshData(reformDedupLayout);
 const reformDedupStairs = reformDedupMeshes.filter(m => m.type === "staircase" && m.floorLevel === 0);
 const reformDedupHalls = reformDedupMeshes.filter(m => m.type === "hallway");
 assertEqual(reformDedupStairs.length, 1, "Reform deduped: 1 staircase mesh");
-assertEqual(reformDedupHalls.length, 0, "Reform: 0 hallway meshes");
+assertEqual(reformDedupHalls.length, 3, "Reform: 3 hallway meshes (landing per floor)");
 
 // Material color mapping validation
 const materialTypes = ["unit", "staircase", "hallway", "slab"];

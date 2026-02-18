@@ -15,22 +15,42 @@ function renderRoomLayout(unit) {
   const d = unit.d;
   const pad = 0.3;
 
-  // Room allocation along the depth axis (top to bottom within unit):
-  //   Living/Kitchen (40%), Bedrooms (40% split), Bath (20%)
-  const livingEnd = y + d * 0.40;
-  const bedroomEnd = y + d * 0.80;
+  // Rear units are flipped so living faces the exterior window (south)
+  // and bath/entry faces the stair landing (center of building)
+  const isRear = unit.position && unit.position.startsWith("rear");
 
-  // Dashed partition: Living/Kitchen bottom edge
-  svg += `<line x1="${x + pad}" y1="${livingEnd}" x2="${x + w - pad}" y2="${livingEnd}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+  // Room zones (each as fraction of depth):
+  //   Front: Living/Kitchen (40%) → Bedrooms (40%) → Bath (20%)  [bath near stair]
+  //   Rear:  Bath (20%) → Bedrooms (40%) → Living/Kitchen (40%)  [bath near stair, living near window]
+  let livingStart, livingEnd, brStart, brEnd, bathStart, bathEnd;
 
-  // Dashed partition: Bedrooms bottom edge (separating BR zone from Bath)
-  svg += `<line x1="${x + pad}" y1="${bedroomEnd}" x2="${x + w - pad}" y2="${bedroomEnd}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+  if (isRear) {
+    bathStart = y;
+    bathEnd = y + d * 0.20;
+    brStart = bathEnd;
+    brEnd = y + d * 0.60;
+    livingStart = brEnd;
+    livingEnd = y + d;
+  } else {
+    livingStart = y;
+    livingEnd = y + d * 0.40;
+    brStart = livingEnd;
+    brEnd = y + d * 0.80;
+    bathStart = brEnd;
+    bathEnd = y + d;
+  }
+
+  // Dashed partition lines between zones
+  const line1 = isRear ? bathEnd : livingEnd;
+  const line2 = isRear ? brEnd : brEnd;
+  svg += `<line x1="${x + pad}" y1="${line1}" x2="${x + w - pad}" y2="${line1}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+  svg += `<line x1="${x + pad}" y1="${line2}" x2="${x + w - pad}" y2="${line2}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
 
   // Vertical partitions between bedrooms
   if (br >= 2) {
     for (let i = 1; i < br; i++) {
       const bx = x + (w / br) * i;
-      svg += `<line x1="${bx}" y1="${livingEnd + pad}" x2="${bx}" y2="${bedroomEnd - pad}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
+      svg += `<line x1="${bx}" y1="${brStart + pad}" x2="${bx}" y2="${brEnd - pad}" stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8" data-type="room-line"/>`;
     }
   }
 
@@ -39,17 +59,17 @@ function renderRoomLayout(unit) {
   const labelFill = "#7A756E";
 
   // Living/Kitchen label
-  svg += `<text x="${x + w / 2}" y="${y + d * 0.20}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Living / Kitchen</text>`;
+  svg += `<text x="${x + w / 2}" y="${(livingStart + livingEnd) / 2}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Living / Kitchen</text>`;
 
   // Bedroom labels
   for (let i = 0; i < br; i++) {
     const bx = x + (w / br) * i + (w / br) / 2;
-    const by = (livingEnd + bedroomEnd) / 2;
+    const by = (brStart + brEnd) / 2;
     svg += `<text x="${bx}" y="${by}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">BR ${i + 1}</text>`;
   }
 
   // Bath label
-  svg += `<text x="${x + w / 2}" y="${bedroomEnd + d * 0.10}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Bath</text>`;
+  svg += `<text x="${x + w / 2}" y="${(bathStart + bathEnd) / 2}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Bath</text>`;
 
   return svg;
 }

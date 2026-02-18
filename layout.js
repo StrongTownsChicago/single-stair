@@ -90,27 +90,35 @@ function generateFloor(params) {
   return generateStandardFloor(lot, staircaseCount, floorLevel);
 }
 
-// Single lot: single stair, 2 full-width units
-// Staircase renders on top of units where it overlaps
+// Single lot: single stair centered between front/rear units
+// Both units open directly onto a small landing at the stair (point-access design)
 function generateStandardFloor(lot, staircaseCount, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
   const halfD = bd / 2;
 
   const staircases = [];
+  const hallways = [];
+
   if (staircaseCount === 3) {
     staircases.push({ x: 0, y: 0, w: STAIR_W, d: STAIR_D, type: "interior" });
     staircases.push({ x: 0, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
     staircases.push({ x: 0, y: bd - STAIR_D, w: STAIR_W, d: STAIR_D, type: "gangway" });
   } else {
+    // Single stair centered at building core; small landing where unit doors open
+    const vestibuleD = 2;
     staircases.push({ x: (bw - STAIR_W) / 2, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
+    hallways.push({ x: 0, y: halfD - vestibuleD / 2, w: bw, d: vestibuleD });
   }
 
-  // Units span full buildable width; sqft deducts stair overlap
-  const unitA = { x: 0, y: 0, w: bw, d: halfD };
-  const unitB = { x: 0, y: halfD, w: bw, d: halfD };
+  // Units on either side of the central landing (or at halfD if no landing)
+  const vestibuleD = hallways.length > 0 ? hallways[0].d : 0;
+  const unitADepth = halfD - vestibuleD / 2;
+  const unitBY = halfD + vestibuleD / 2;
+  const unitBDepth = bd - unitBY;
 
-  const stairPhysicalArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
+  const unitA = { x: 0, y: 0, w: bw, d: unitADepth };
+  const unitB = { x: 0, y: unitBY, w: bw, d: unitBDepth };
 
   const frontWindows = ["north"];
   const backWindows = ["south"];
@@ -133,13 +141,15 @@ function generateStandardFloor(lot, staircaseCount, floorLevel) {
     },
   ];
 
+  const livableSqft = units.reduce((s, u) => s + u.sqft, 0);
+
   return {
     level: floorLevel,
     units,
     staircases,
-    hallways: [],
-    circulationSqft: stairPhysicalArea,
-    livableSqft: units.reduce((s, u) => s + u.sqft, 0),
+    hallways,
+    circulationSqft: bw * bd - livableSqft,
+    livableSqft,
   };
 }
 
