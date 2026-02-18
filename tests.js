@@ -350,18 +350,6 @@ assertEqual(
 assert(svgStr.includes("sf"), "Unit label includes square footage");
 assert(svgStr.includes("BR"), "Unit label includes bedroom count");
 
-// Window wall highlight tests
-const windowWallCount = countDataType(svgStr, "window-wall");
-const expectedWindowWalls = svgLayout.floors[2].units.reduce(
-  (s, u) => s + u.windowWalls.length,
-  0,
-);
-assertEqual(
-  windowWallCount,
-  expectedWindowWalls,
-  "Correct number of window wall highlights",
-);
-
 // Scale test: SVG viewBox aspect ratio matches lot aspect ratio
 const viewBoxMatch = svgStr.match(/viewBox="([^"]+)"/);
 assert(viewBoxMatch, "SVG has a viewBox attribute");

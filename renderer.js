@@ -118,30 +118,6 @@ function renderFloorPlanSVG(layout, floorIndex) {
     svg += renderHallLabel(hall);
   }
 
-  // Window walls (exterior walls with windows)
-  for (const unit of floor.units) {
-    for (const wall of unit.windowWalls) {
-      let x1, y1, x2, y2;
-      switch (wall) {
-        case "north":
-          x1 = unit.x; y1 = unit.y; x2 = unit.x + unit.w; y2 = unit.y;
-          break;
-        case "south":
-          x1 = unit.x; y1 = unit.y + unit.d; x2 = unit.x + unit.w; y2 = unit.y + unit.d;
-          break;
-        case "east":
-          x1 = unit.x + unit.w; y1 = unit.y; x2 = unit.x + unit.w; y2 = unit.y + unit.d;
-          break;
-        case "west":
-          x1 = unit.x; y1 = unit.y; x2 = unit.x; y2 = unit.y + unit.d;
-          break;
-        default:
-          continue;
-      }
-      svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#D9B84A" stroke-width="1.2" data-type="window-wall" data-wall="${wall}" stroke-linecap="round"/>`;
-    }
-  }
-
   svg += `</svg>`;
   return svg;
 }

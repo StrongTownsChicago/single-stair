@@ -53,7 +53,7 @@ function createTourSteps(config) {
     steps.push({
       id: "reform",
       title: "With single stair reform",
-      description: "One stairway plus sprinklers. Larger units with more bedrooms and natural light, the kind of family-friendly apartments Chicago needs.",
+      description: "One stairway plus sprinklers. Larger units with more bedrooms, the kind of family-friendly apartments Chicago needs.",
       cameraPosition: { x: 40 * scale, y: 25 * scale, z: 50 * scale },
       cameraTarget: { x: bw / 2 + bw * 0.75, y: totalHeight / 2, z: 0 },
       highlights: ["units-reform"],

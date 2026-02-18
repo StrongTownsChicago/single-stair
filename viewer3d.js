@@ -159,10 +159,6 @@ function buildBuildingGroup(meshData, label) {
       addEdgeLines(group, geometry, mesh.position);
     }
 
-    // Add window wall edge highlights for unit meshes
-    if (meshDesc.type === "unit" && meshDesc.windowWalls && meshDesc.windowWalls.length > 0) {
-      addWindowEdges(group, meshDesc, centerX, centerZ);
-    }
   }
 
   // Add label sprite above the building

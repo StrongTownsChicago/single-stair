@@ -920,7 +920,6 @@
   <div class="legend-bar">
     <div class="legend-item"><span class="legend-swatch" style="background:#D64545;"></span> Staircase</div>
     <div class="legend-item"><span class="legend-swatch" style="background:#D4903A;"></span> Hallway</div>
-    <div class="legend-item"><span class="legend-swatch" style="background:#D9B84A;"></span> Window Wall</div>
     <div class="legend-item"><span class="legend-swatch" style="background:#EDE8DF;"></span> Livable Space</div>
   </div>
 
@@ -1089,7 +1088,7 @@
         const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
         const dArea = Math.round(rLiv - cLiv);
         const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-        narrativeHeadline.innerHTML = `Three stairways consume <strong>${dArea} sf (+${dPct}%)</strong> of this floor, limiting bedrooms and reducing access to windows and natural light.`;
+        narrativeHeadline.innerHTML = `Three stairways consume <strong>${dArea} sf (+${dPct}%)</strong> of this floor, limiting bedrooms.`;
       } else if (currentConfig.stories <= 2) {
         narrativeHeadline.innerHTML = 'Chicago currently allows second-story units to access a single stairway. <strong>Choose 3 or 4 stories</strong> to see what changes above the second floor.';
       } else {
@@ -1147,8 +1146,6 @@
       const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
       const deltaArea = refLivable - currLivable;
       const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
-      const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
-      const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
       const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
       const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
 
@@ -1166,7 +1163,6 @@
       addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
       addDelta(Number(deltaPct), '%', 'More Space');
       addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
-      addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
       addDelta(refBR - currBR, '', 'Bedrooms');
 
       // Per-floor table
@@ -1176,7 +1172,6 @@
       addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
       addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
       addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
-      addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
       addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
       addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
 
@@ -1268,21 +1263,6 @@
         });
       });
 
-      document.querySelectorAll('[data-type="window-wall"]').forEach(el => {
-        el.addEventListener('mouseenter', () => {
-          el.setAttribute('stroke-width', '2');
-          tooltip.style.display = 'block';
-          tooltip.textContent = `Window wall: natural light access (${el.getAttribute('data-wall')})`;
-        });
-        el.addEventListener('mousemove', (e) => {
-          tooltip.style.left = (e.clientX + 12) + 'px';
-          tooltip.style.top = (e.clientY + 12) + 'px';
-        });
-        el.addEventListener('mouseleave', () => {
-          el.setAttribute('stroke-width', '1');
-          tooltip.style.display = 'none';
-        });
-      });
     }
 
     // --- Event listeners ---
