@@ -9,7 +9,6 @@ if (typeof require !== "undefined") {
     const _renderer = require("./renderer.js");
     if (_renderer.renderFloorPlanSVG) globalThis.renderFloorPlanSVG = _renderer.renderFloorPlanSVG;
     if (_renderer.renderComparator) globalThis.renderComparator = _renderer.renderComparator;
-    if (_renderer.renderCourtyardSVG) globalThis.renderCourtyardSVG = _renderer.renderCourtyardSVG;
   } catch (e) {}
   try {
     const _stats = require("./stats.js");
@@ -25,10 +24,6 @@ if (typeof require !== "undefined") {
     if (_mesh.buildMeshData) globalThis.buildMeshData = _mesh.buildMeshData;
   } catch (e) {}
   try {
-    const _courtyard = require("./courtyard.js");
-    if (_courtyard.generateCourtyardLayout) globalThis.generateCourtyardLayout = _courtyard.generateCourtyardLayout;
-  } catch (e) {}
-  try {
     const _tour = require("./tour.js");
     if (_tour.createTourSteps) globalThis.createTourSteps = _tour.createTourSteps;
     if (_tour.createTourState) globalThis.createTourState = _tour.createTourState;
@@ -38,7 +33,6 @@ if (typeof require !== "undefined") {
   try {
     const _viewer = require("./viewer3d.js");
     if (_viewer.MATERIAL_COLORS) globalThis.MATERIAL_COLORS = _viewer.MATERIAL_COLORS;
-    if (_viewer.buildCourtyardSegmentMeshes) globalThis.buildCourtyardSegmentMeshes = _viewer.buildCourtyardSegmentMeshes;
   } catch (e) {}
 }
 
@@ -81,7 +75,7 @@ function overlaps(a, b) {
 }
 
 // =============================================================
-// 1.1 — Layout Engine Tests (RED)
+// 1.1 — Layout Engine Tests
 // =============================================================
 
 // --- Lot Geometry Tests ---
@@ -92,7 +86,6 @@ const single = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 assertEqual(single.lot.width, 25, "Single lot width");
 assertEqual(
@@ -106,25 +99,11 @@ const double = generateLayout({
   lot: "double",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 assertEqual(
   double.lot.buildableWidth,
   45,
   "Double lot buildable width (50 - 5ft setbacks)",
-);
-
-const corner = generateLayout({
-  lot: "corner",
-  stories: 3,
-  stair: "current",
-  ground: "residential",
-});
-assertApprox(
-  corner.lot.buildableWidth,
-  22.5,
-  1,
-  "Corner lot buildable width (one fewer setback)",
 );
 
 // --- Staircase Count Tests ---
@@ -136,7 +115,6 @@ const curr_single_3 = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 assertEqual(
   curr_single_3.floors[0].staircases.length,
@@ -158,7 +136,6 @@ const curr_double_3 = generateLayout({
   lot: "double",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 assertEqual(
   curr_double_3.floors[0].staircases.length,
@@ -186,7 +163,6 @@ const reform_single_3 = generateLayout({
   lot: "single",
   stories: 3,
   stair: "reform",
-  ground: "residential",
 });
 assertEqual(
   reform_single_3.floors[2].staircases.length,
@@ -204,13 +180,11 @@ const curr_single_2 = generateLayout({
   lot: "single",
   stories: 2,
   stair: "current",
-  ground: "residential",
 });
 const reform_single_2 = generateLayout({
   lot: "single",
   stories: 2,
   stair: "reform",
-  ground: "residential",
 });
 assertEqual(
   curr_single_2.floors[1].staircases.length,
@@ -242,19 +216,17 @@ for (const floor of curr_single_3.floors) {
 console.log("=== Comparative Assertions ===");
 
 // For every lot type and story count, reform must produce >= livable area
-for (const lot of ["single", "double", "corner"]) {
+for (const lot of ["single", "double"]) {
   for (const stories of [2, 3, 4]) {
     const curr = generateLayout({
       lot,
       stories,
       stair: "current",
-      ground: "residential",
     });
     const reform = generateLayout({
       lot,
       stories,
       stair: "reform",
-      ground: "residential",
     });
     for (let i = 0; i < stories; i++) {
       const currLivable = curr.floors[i].units.reduce((s, u) => s + u.sqft, 0);
@@ -279,13 +251,11 @@ const currWin = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 const reformWin = generateLayout({
   lot: "single",
   stories: 3,
   stair: "reform",
-  ground: "residential",
 });
 const currWindows = currWin.floors[2].units.reduce(
   (s, u) => s + u.windowWalls.length,
@@ -298,47 +268,6 @@ const reformWindows = reformWin.floors[2].units.reduce(
 assert(
   reformWindows >= currWindows,
   `Reform has >= window walls on floor 3: ${reformWindows} >= ${currWindows}`,
-);
-
-// Corner lot gets side windows
-const cornerReform = generateLayout({
-  lot: "corner",
-  stories: 3,
-  stair: "reform",
-  ground: "residential",
-});
-const hasSideWindows = cornerReform.floors[0].units.some(
-  (u) => u.windowWalls.includes("east") || u.windowWalls.includes("west"),
-);
-assert(
-  hasSideWindows,
-  "Corner lot has at least one unit with side window wall",
-);
-
-// --- Commercial Ground Floor Tests ---
-
-console.log("=== Commercial Ground Floor Tests ===");
-
-const commercial = generateLayout({
-  lot: "single",
-  stories: 3,
-  stair: "reform",
-  ground: "commercial",
-});
-assertEqual(
-  commercial.floors[0].units.length,
-  1,
-  "Commercial ground floor: 1 retail unit",
-);
-assertEqual(
-  commercial.floors[0].units[0].type,
-  "commercial",
-  "Ground floor unit type is commercial",
-);
-assertEqual(
-  commercial.floors[1].units[0].type,
-  "residential",
-  "Floor 2 is residential",
 );
 
 // --- No Overlaps Tests ---
@@ -368,7 +297,7 @@ for (const config of [curr_single_3, reform_single_3, curr_double_3]) {
 }
 
 // =============================================================
-// 1.2 — SVG Renderer Tests (RED)
+// 1.2 — SVG Renderer Tests
 // =============================================================
 
 console.log("=== SVG Renderer Tests ===");
@@ -384,7 +313,6 @@ const svgLayout = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 const svgStr = renderFloorPlanSVG(svgLayout, 2); // Floor 3 (0-indexed)
 
@@ -451,7 +379,7 @@ if (viewBoxMatch) {
 
 // Side-by-side comparator test
 const comparatorStr = renderComparator(
-  { lot: "single", stories: 3, ground: "residential" },
+  { lot: "single", stories: 3 },
   2, // floor index
 );
 const planCount = (comparatorStr.match(/class="floor-plan"/g) || []).length;
@@ -470,7 +398,7 @@ assert(
 );
 
 // =============================================================
-// 1.3 — Stats Dashboard Tests (RED)
+// 1.3 — Stats Dashboard Tests
 // =============================================================
 
 console.log("=== Stats Dashboard Tests ===");
@@ -480,13 +408,11 @@ const statsCurr = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 const statsReform = generateLayout({
   lot: "single",
   stories: 3,
   stair: "reform",
-  ground: "residential",
 });
 const stats = computeStats(statsCurr, statsReform);
 
@@ -543,19 +469,17 @@ assertApprox(
 );
 
 // Deltas must be non-negative for standard configs (reform is never worse)
-for (const lot of ["single", "double", "corner"]) {
+for (const lot of ["single", "double"]) {
   for (const stories of [3, 4]) {
     const c = generateLayout({
       lot,
       stories,
       stair: "current",
-      ground: "residential",
     });
     const r = generateLayout({
       lot,
       stories,
       stair: "reform",
-      ground: "residential",
     });
     const s = computeStats(c, r);
     assert(
@@ -578,13 +502,11 @@ const c2 = generateLayout({
   lot: "single",
   stories: 2,
   stair: "current",
-  ground: "residential",
 });
 const r2 = generateLayout({
   lot: "single",
   stories: 2,
   stair: "reform",
-  ground: "residential",
 });
 const s2 = computeStats(c2, r2);
 assertEqual(
@@ -595,7 +517,7 @@ assertEqual(
 assertEqual(s2.deltas.staircases, 0, "2-story building: zero staircase delta");
 
 // =============================================================
-// 1.4 — URL State Tests (RED)
+// 1.4 — URL State Tests
 // =============================================================
 
 console.log("=== URL State Tests ===");
@@ -605,14 +527,12 @@ const urlConfig = {
   lot: "double",
   stories: 4,
   stair: "reform",
-  ground: "commercial",
 };
 const hash = encodeConfigToHash(urlConfig);
 const decoded = decodeHashToConfig(hash);
 assertEqual(decoded.lot, urlConfig.lot, "Roundtrip: lot");
 assertEqual(decoded.stories, urlConfig.stories, "Roundtrip: stories");
 assertEqual(decoded.stair, urlConfig.stair, "Roundtrip: stair");
-assertEqual(decoded.ground, urlConfig.ground, "Roundtrip: ground");
 
 // Defaults when hash is empty
 const defaults = decodeHashToConfig("");
@@ -623,7 +543,6 @@ assertEqual(
   "current",
   "Default stair is current (show comparison)",
 );
-assertEqual(defaults.ground, "residential", "Default ground is residential");
 
 // Invalid hash values fall back to defaults
 const bad = decodeHashToConfig("#lot=mansion&stories=99");
@@ -631,7 +550,7 @@ assertEqual(bad.lot, "single", "Invalid lot falls back to single");
 assertEqual(bad.stories, 4, "Stories capped at 4");
 
 // =============================================================
-// 2.2 — 3D Geometry Tests (RED)
+// 2.2 — 3D Geometry Tests
 // =============================================================
 
 console.log("=== 3D Geometry Tests ===");
@@ -643,7 +562,6 @@ const meshLayout = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 const meshes = buildMeshData(meshLayout);
 
@@ -712,23 +630,14 @@ meshLayout.floors.forEach((floor, i) => {
     });
 });
 
-// Commercial ground floor has taller height
-const commLayout = generateLayout({
-  lot: "single",
-  stories: 3,
-  stair: "reform",
-  ground: "commercial",
-});
-const commMeshes = buildMeshData(commLayout);
-const groundUnits = commMeshes.filter(
-  (m) => m.type === "unit" && m.floorLevel === 0,
-);
-groundUnits.forEach((m) => {
-  assertEqual(m.height, 14, "Commercial ground floor is 14ft tall");
+// All unit meshes have residential height
+const allUnitMeshes = meshes.filter((m) => m.type === "unit");
+allUnitMeshes.forEach((m) => {
+  assertEqual(m.height, FLOOR_HEIGHT, "Unit mesh height is 10ft (residential)");
 });
 
 // =============================================================
-// 2.3 — Floor Stacking Tests (RED)
+// 2.3 — Floor Stacking Tests
 // =============================================================
 
 console.log("=== Floor Stacking Tests ===");
@@ -738,13 +647,11 @@ const layout3 = generateLayout({
   lot: "single",
   stories: 3,
   stair: "reform",
-  ground: "residential",
 });
 const layout4 = generateLayout({
   lot: "single",
   stories: 4,
   stair: "reform",
-  ground: "residential",
 });
 const meshes3 = buildMeshData(layout3);
 const meshes4 = buildMeshData(layout4);
@@ -768,124 +675,7 @@ assertApprox(
 );
 
 // =============================================================
-// 2.4 — Courtyard Layout Tests (RED)
-// =============================================================
-
-console.log("=== Courtyard Layout Tests ===");
-
-// Helper for 2D bounding box overlap
-function overlaps2D(a, b) {
-  return (
-    a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.d && a.y + a.d > b.y
-  );
-}
-function getSegmentBoundingBox(seg) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const floor of seg.floors) {
-    for (const u of floor.units) {
-      minX = Math.min(minX, u.x);
-      minY = Math.min(minY, u.y);
-      maxX = Math.max(maxX, u.x + u.w);
-      maxY = Math.max(maxY, u.y + u.d);
-    }
-    for (const st of floor.staircases) {
-      minX = Math.min(minX, st.x);
-      minY = Math.min(minY, st.y);
-      maxX = Math.max(maxX, st.x + st.w);
-      maxY = Math.max(maxY, st.y + st.d);
-    }
-  }
-  return { x: minX, y: minY, w: maxX - minX, d: maxY - minY };
-}
-
-// L-shape: 2 segments, each a single-stair cluster
-const lShape = generateCourtyardLayout({
-  shape: "L",
-  stories: 3,
-  ground: "residential",
-});
-assertEqual(lShape.segments.length, 2, "L-shape has 2 building segments");
-lShape.segments.forEach((seg) => {
-  assertEqual(
-    seg.floors[0].staircases.length,
-    1,
-    "Each L-shape segment has 1 staircase",
-  );
-  assert(seg.floors[0].units.length <= 4, "Max 4 units per floor per cluster");
-});
-
-// U-shape: 3 segments
-const uShape = generateCourtyardLayout({
-  shape: "U",
-  stories: 3,
-  ground: "residential",
-});
-assertEqual(uShape.segments.length, 3, "U-shape has 3 building segments");
-
-// Courtyard exists and is open space
-assert(lShape.courtyard, "L-shape has a courtyard area");
-assert(lShape.courtyard.area > 0, "Courtyard has positive area");
-
-// No segment overlaps the courtyard
-lShape.segments.forEach((seg, i) => {
-  const segBBox = getSegmentBoundingBox(seg);
-  assert(
-    !overlaps2D(segBBox, lShape.courtyard.bounds),
-    `Segment ${i} does not overlap courtyard`,
-  );
-});
-
-// No segments overlap each other
-for (let i = 0; i < lShape.segments.length; i++) {
-  for (let j = i + 1; j < lShape.segments.length; j++) {
-    assert(
-      !overlaps2D(
-        getSegmentBoundingBox(lShape.segments[i]),
-        getSegmentBoundingBox(lShape.segments[j]),
-      ),
-      `Segments ${i} and ${j} do not overlap`,
-    );
-  }
-}
-
-// Courtyard-facing units have window walls toward courtyard
-lShape.segments.forEach((seg) => {
-  const courtyardFacingUnits = seg.floors[0].units.filter((u) =>
-    u.windowWalls.includes("courtyard"),
-  );
-  assert(
-    courtyardFacingUnits.length > 0,
-    "At least one unit per segment faces courtyard",
-  );
-});
-
-// Compare courtyard to non-courtyard: courtyard has more total window walls
-const noCourtyardLayout = generateLayout({
-  lot: "double",
-  stories: 3,
-  stair: "reform",
-  ground: "residential",
-});
-const lShapeWindows = lShape.segments.reduce(
-  (s, seg) =>
-    s +
-    seg.floors.reduce(
-      (fs, f) => fs + f.units.reduce((us, u) => us + u.windowWalls.length, 0),
-      0,
-    ),
-  0,
-);
-const noCourtyardWindows = noCourtyardLayout.floors.reduce(
-  (s, f) => s + f.units.reduce((us, u) => us + u.windowWalls.length, 0),
-  0,
-);
-assert(
-  lShapeWindows > noCourtyardWindows,
-  "Courtyard configuration has more total window walls than block configuration",
-);
-
-// =============================================================
-// 3.1 — Multi-Stair Hallway Tests (RED → GREEN with layout.js changes)
+// 3.1 — Multi-Stair Hallway Tests
 // =============================================================
 
 console.log("=== Multi-Stair Hallway Tests ===");
@@ -895,7 +685,6 @@ const multiStairLayout = generateLayout({
   lot: "single",
   stories: 3,
   stair: "current",
-  ground: "residential",
 });
 const msFloor3 = multiStairLayout.floors[2];
 
@@ -909,7 +698,6 @@ const reformLayout = generateLayout({
   lot: "single",
   stories: 3,
   stair: "reform",
-  ground: "residential",
 });
 const refFloor3 = reformLayout.floors[2];
 
@@ -953,19 +741,6 @@ assert(
   `Single lot floor 3 delta is ${deltaPctF3.toFixed(1)}% — must be >= 15%`,
 );
 
-// Corner lot floor 3 should also have hallways and wider circulation
-const cornerMultiStair = generateLayout({
-  lot: "corner",
-  stories: 3,
-  stair: "current",
-  ground: "residential",
-});
-const cornerF3 = cornerMultiStair.floors[2];
-assert(
-  cornerF3.hallways.length > 0,
-  "Corner lot, current code, floor 3: has hallway elements",
-);
-
 // Area conservation still holds with wider circulation
 const msUnitArea = msFloor3.units.reduce((s, u) => s + u.sqft, 0);
 const msStairArea = msFloor3.staircases.reduce((s, st) => s + st.w * st.d, 0);
@@ -996,9 +771,9 @@ for (let i = 0; i < msAllElements.length; i++) {
 console.log("=== Building-Level Stair Consistency Tests ===");
 
 // All floors of a 3+ story building must have the same stair count
-for (const lot of ["single", "double", "corner"]) {
+for (const lot of ["single", "double"]) {
   for (const stories of [3, 4]) {
-    const layout = generateLayout({ lot, stories, stair: "current", ground: "residential" });
+    const layout = generateLayout({ lot, stories, stair: "current" });
     const floorStairCounts = layout.floors.map(f => f.staircases.length);
     const allSame = floorStairCounts.every(c => c === floorStairCounts[0]);
     assert(allSame, `${lot}/${stories}story: all floors have same stair count (${floorStairCounts.join(',')})`);
@@ -1006,9 +781,9 @@ for (const lot of ["single", "double", "corner"]) {
 }
 
 // All floors of a 3+ story building must have the same hallway count
-for (const lot of ["single", "double", "corner"]) {
+for (const lot of ["single", "double"]) {
   for (const stories of [3, 4]) {
-    const layout = generateLayout({ lot, stories, stair: "current", ground: "residential" });
+    const layout = generateLayout({ lot, stories, stair: "current" });
     const floorHallCounts = layout.floors.map(f => f.hallways.length);
     const allSame = floorHallCounts.every(c => c === floorHallCounts[0]);
     assert(allSame, `${lot}/${stories}story: all floors have same hallway count (${floorHallCounts.join(',')})`);
@@ -1035,37 +810,31 @@ assertApprox(
 );
 
 // 2-story buildings still get 1 stair on all floors
-const curr2story = generateLayout({ lot: "single", stories: 2, stair: "current", ground: "residential" });
+const curr2story = generateLayout({ lot: "single", stories: 2, stair: "current" });
 assertEqual(curr2story.floors[0].staircases.length, 1, "2-story single lot, floor 1: 1 staircase");
 assertEqual(curr2story.floors[1].staircases.length, 1, "2-story single lot, floor 2: 1 staircase");
 assertEqual(curr2story.floors[0].hallways.length, 0, "2-story single lot, floor 1: 0 hallways");
 
 // Reform always gets 1 stair regardless of building height
 for (const stories of [2, 3, 4]) {
-  const ref = generateLayout({ lot: "single", stories, stair: "reform", ground: "residential" });
+  const ref = generateLayout({ lot: "single", stories, stair: "reform" });
   for (let i = 0; i < stories; i++) {
     assertEqual(ref.floors[i].staircases.length, 1, `Reform ${stories}story floor ${i+1}: 1 staircase`);
     assertEqual(ref.floors[i].hallways.length, 0, `Reform ${stories}story floor ${i+1}: 0 hallways`);
   }
 }
 
-// Commercial ground floor still gets 1 staircase even in 3+ story buildings
-const commCurr3 = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "commercial" });
-assertEqual(commCurr3.floors[0].staircases.length, 1, "Commercial ground floor: 1 staircase (stair shaft exists but retail wraps around)");
-assertEqual(commCurr3.floors[1].staircases.length, 3, "Commercial 3-story, floor 2: 3 staircases");
-assertEqual(commCurr3.floors[2].staircases.length, 3, "Commercial 3-story, floor 3: 3 staircases");
-
 // Delta is now impactful on every floor of a 3+ story building (not just floor 3+)
-for (const lot of ["single", "corner"]) {
-  const c = generateLayout({ lot, stories: 3, stair: "current", ground: "residential" });
-  const r = generateLayout({ lot, stories: 3, stair: "reform", ground: "residential" });
+{
+  const c = generateLayout({ lot: "single", stories: 3, stair: "current" });
+  const r = generateLayout({ lot: "single", stories: 3, stair: "reform" });
   for (let i = 0; i < 3; i++) {
     const cLiv = c.floors[i].units.reduce((s, u) => s + u.sqft, 0);
     const rLiv = r.floors[i].units.reduce((s, u) => s + u.sqft, 0);
     const deltaPct = ((rLiv - cLiv) / cLiv) * 100;
     assert(
       deltaPct >= 15,
-      `${lot} 3-story floor ${i+1}: reform delta ${deltaPct.toFixed(1)}% >= 15%`,
+      `single 3-story floor ${i+1}: reform delta ${deltaPct.toFixed(1)}% >= 15%`,
     );
   }
 }
@@ -1093,85 +862,13 @@ assertApprox(
 );
 
 // =============================================================
-// 3.2 — Courtyard SVG Renderer Tests (RED → GREEN with renderer.js changes)
-// =============================================================
-
-console.log("=== Courtyard SVG Renderer Tests ===");
-
-const cyLayout = generateCourtyardLayout({
-  shape: "L",
-  stories: 3,
-  ground: "residential",
-});
-const cySvg = renderCourtyardSVG(cyLayout, 1); // floor 2 (0-indexed)
-
-// SVG is produced
-assert(cySvg.includes("<svg"), "renderCourtyardSVG produces SVG element");
-
-// Contains courtyard rect
-assert(
-  cySvg.includes('data-type="courtyard"'),
-  "Courtyard SVG has courtyard rect",
-);
-
-// Contains correct number of unit rects (2 segments × 2 units each for L-shape)
-const cyUnitCount = countDataType(cySvg, "unit");
-const expectedCyUnits = cyLayout.segments.reduce(
-  (s, seg) => s + seg.floors[1].units.length,
-  0,
-);
-assertEqual(
-  cyUnitCount,
-  expectedCyUnits,
-  `Courtyard SVG has ${expectedCyUnits} unit rects`,
-);
-
-// Contains staircase rects (1 per segment)
-const cyStairCount = countDataType(cySvg, "staircase");
-const expectedCyStairs = cyLayout.segments.reduce(
-  (s, seg) => s + seg.floors[1].staircases.length,
-  0,
-);
-assertEqual(
-  cyStairCount,
-  expectedCyStairs,
-  `Courtyard SVG has ${expectedCyStairs} staircase rects`,
-);
-
-// =============================================================
-// 3.3 — URL State buildingType Tests (RED → GREEN with state.js changes)
-// =============================================================
-
-console.log("=== URL State buildingType Tests ===");
-
-// Roundtrip for buildingType
-const btConfig = {
-  lot: "single",
-  stories: 3,
-  stair: "current",
-  ground: "residential",
-  buildingType: "L",
-};
-const btHash = encodeConfigToHash(btConfig);
-const btDecoded = decodeHashToConfig(btHash);
-assertEqual(btDecoded.buildingType, "L", "Roundtrip: buildingType L");
-
-// Default buildingType
-const btDefaults = decodeHashToConfig("");
-assertEqual(btDefaults.buildingType, "standard", "Default buildingType is standard");
-
-// Invalid buildingType falls back
-const btBad = decodeHashToConfig("#building=X");
-assertEqual(btBad.buildingType, "standard", "Invalid buildingType falls back to standard");
-
-// =============================================================
 // 4.1 — 3D Scene Construction Tests
 // =============================================================
 
 console.log("=== 3D Scene Construction Tests ===");
 
 // Staircase deduplication for rendering
-const dedup3Layout = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "residential" });
+const dedup3Layout = generateLayout({ lot: "single", stories: 3, stair: "current" });
 const dedup3Meshes = buildMeshData(dedup3Layout);
 const allStairs3 = dedup3Meshes.filter(m => m.type === "staircase");
 assertEqual(allStairs3.length, 9, "Raw mesh data has 9 staircase meshes (3 per floor x 3 floors)");
@@ -1183,7 +880,7 @@ dedupedStairs3.forEach(m => {
 });
 
 // Reform has fewer meshes after deduplication
-const reformDedupLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "residential" });
+const reformDedupLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
 const reformDedupMeshes = buildMeshData(reformDedupLayout);
 const reformDedupStairs = reformDedupMeshes.filter(m => m.type === "staircase" && m.floorLevel === 0);
 const reformDedupHalls = reformDedupMeshes.filter(m => m.type === "hallway");
@@ -1191,29 +888,19 @@ assertEqual(reformDedupStairs.length, 1, "Reform deduped: 1 staircase mesh");
 assertEqual(reformDedupHalls.length, 0, "Reform: 0 hallway meshes");
 
 // Material color mapping validation
-const materialTypes = ["unit", "staircase", "hallway", "slab", "commercial"];
+const materialTypes = ["unit", "staircase", "hallway", "slab"];
 const expectedColors = {
   unit: 0xF0EBE1,
   staircase: 0xBF5B4B,
   hallway: 0xC4B5A5,
   slab: 0xCCC7BF,
-  commercial: 0x4FA393,
 };
 materialTypes.forEach(type => {
   assertEqual(MATERIAL_COLORS[type], expectedColors[type], `MATERIAL_COLORS.${type} is correct`);
 });
 
-// Commercial unit type detection
-const commSceneLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "commercial" });
-const commSceneMeshes = buildMeshData(commSceneLayout);
-const commUnitMeshes = commSceneMeshes.filter(m => m.type === "unit" && m.unitType === "commercial");
-assert(commUnitMeshes.length > 0, "Commercial layout has commercial-type unit meshes");
-commUnitMeshes.forEach(m => {
-  assertEqual(m.unitType, "commercial", "Commercial unit mesh has unitType 'commercial'");
-});
-
 // Side-by-side positioning math
-const ssConfig = { lot: "single", stories: 3, ground: "residential" };
+const ssConfig = { lot: "single", stories: 3 };
 const ssCurrentLayout = generateLayout({ ...ssConfig, stair: "current" });
 const ssBw = ssCurrentLayout.lot.buildableWidth;
 const ssGap = ssBw * 1.5;
@@ -1223,15 +910,8 @@ assert(ssCurrentCenterX < 0, "Current code building center is at negative X");
 assert(ssReformCenterX > 0, "Reform building center is at positive X");
 assertApprox(Math.abs(ssCurrentCenterX), Math.abs(ssReformCenterX), 0.001, "Buildings equidistant from center");
 
-// Courtyard mode detection
-const cyBuildingType = "L";
-const isCyMode = cyBuildingType === "L" || cyBuildingType === "U";
-assert(isCyMode, "L-shape triggers courtyard mode");
-const notCyMode = "standard" === "L" || "standard" === "U";
-assert(!notCyMode, "Standard does not trigger courtyard mode");
-
 // Window wall data presence
-const wwLayout = generateLayout({ lot: "single", stories: 3, stair: "reform", ground: "residential" });
+const wwLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
 const wwMeshData = buildMeshData(wwLayout);
 const wwUnitMeshes = wwMeshData.filter(m => m.type === "unit");
 wwUnitMeshes.forEach(m => {
@@ -1252,7 +932,7 @@ wwFrontUnits.forEach(m => {
 console.log("=== Tour Step Tests ===");
 
 // Standard config: at least 5 steps
-const tourConfig3 = { lot: "single", stories: 3, ground: "residential", buildingType: "standard" };
+const tourConfig3 = { lot: "single", stories: 3 };
 const tourSteps3 = createTourSteps(tourConfig3);
 assert(tourSteps3.length >= 5, `Tour has ${tourSteps3.length} steps (expected >= 5)`);
 
@@ -1270,16 +950,8 @@ tourSteps3.forEach((step, i) => {
   assert(typeof step.cameraTarget.z === "number", `Step ${step.id}: cameraTarget.z is a number`);
 });
 
-// Courtyard step only in L/U mode
-const tourStdSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "standard" });
-const tourLSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "L" });
-const stdHasCourtyard = tourStdSteps.some(s => s.id === "courtyard");
-const lHasCourtyard = tourLSteps.some(s => s.id === "courtyard");
-assert(!stdHasCourtyard, "Standard config tour does not have courtyard step");
-assert(lHasCourtyard, "L-shape config tour has courtyard step");
-
 // 2-story building: fewer or different comparison steps
-const tourSteps2 = createTourSteps({ lot: "single", stories: 2, ground: "residential", buildingType: "standard" });
+const tourSteps2 = createTourSteps({ lot: "single", stories: 2 });
 assert(tourSteps2.length >= 3, `2-story tour has ${tourSteps2.length} steps (expected >= 3)`);
 const compStep2 = tourSteps2.find(s => s.id === "comparison");
 if (compStep2) {
@@ -1290,8 +962,8 @@ if (compStep2) {
 }
 
 // Camera positions scale with lot size
-const tourSingleSteps = createTourSteps({ lot: "single", stories: 3, ground: "residential", buildingType: "standard" });
-const tourDoubleSteps = createTourSteps({ lot: "double", stories: 3, ground: "residential", buildingType: "standard" });
+const tourSingleSteps = createTourSteps({ lot: "single", stories: 3 });
+const tourDoubleSteps = createTourSteps({ lot: "double", stories: 3 });
 const singleAerial = tourSingleSteps.find(s => s.id === "lot" || s.id === "comparison");
 const doubleAerial = tourDoubleSteps.find(s => s.id === "lot" || s.id === "comparison");
 if (singleAerial && doubleAerial) {
@@ -1327,7 +999,7 @@ assertApprox(easeInOutCubic(1), 1, 0.001, "Ease at t=1 is 1");
 console.log("=== 3D Integration Tests ===");
 
 // Complete data flow validation
-const intLayout = generateLayout({ lot: "single", stories: 3, stair: "current", ground: "residential" });
+const intLayout = generateLayout({ lot: "single", stories: 3, stair: "current" });
 const intMeshData = buildMeshData(intLayout);
 
 for (let i = 0; i < intLayout.floors.length; i++) {
@@ -1345,10 +1017,10 @@ for (let i = 0; i < intLayout.floors.length; i++) {
 
 // Different configs produce different mesh counts
 const intConfigs = [
-  { lot: "single", stories: 2, stair: "reform", ground: "residential" },
-  { lot: "single", stories: 3, stair: "current", ground: "residential" },
-  { lot: "double", stories: 3, stair: "current", ground: "residential" },
-  { lot: "single", stories: 3, stair: "reform", ground: "commercial" },
+  { lot: "single", stories: 2, stair: "reform" },
+  { lot: "single", stories: 3, stair: "current" },
+  { lot: "double", stories: 3, stair: "current" },
+  { lot: "single", stories: 3, stair: "reform" },
 ];
 const intMeshCounts = intConfigs.map(c => {
   const layout = generateLayout(c);
@@ -1356,26 +1028,6 @@ const intMeshCounts = intConfigs.map(c => {
 });
 const intUniqueCounts = new Set(intMeshCounts);
 assert(intUniqueCounts.size > 1, "Different configs produce different mesh counts");
-
-// Courtyard mesh building covers all segments
-const intCyLayout = generateCourtyardLayout({ shape: "U", stories: 3, ground: "residential" });
-for (let s = 0; s < intCyLayout.segments.length; s++) {
-  const seg = intCyLayout.segments[s];
-  assertEqual(seg.floors.length, 3, `U-shape segment ${s}: has 3 floors`);
-  assert(seg.floors[0].units.length > 0, `U-shape segment ${s}: has units on floor 1`);
-  assert(seg.floors[0].staircases.length > 0, `U-shape segment ${s}: has staircases on floor 1`);
-}
-
-// Courtyard segment mesh builder produces meshes
-const intCySeg = intCyLayout.segments[0];
-const intCySegMeshes = buildCourtyardSegmentMeshes(intCySeg, 3, "residential");
-assert(intCySegMeshes.length > 0, "Courtyard segment mesh builder produces meshes");
-const intCySegUnits = intCySegMeshes.filter(m => m.type === "unit");
-assert(intCySegUnits.length > 0, "Courtyard segment has unit meshes");
-const intCySegStairs = intCySegMeshes.filter(m => m.type === "staircase");
-assert(intCySegStairs.length > 0, "Courtyard segment has staircase meshes");
-const intCySegSlabs = intCySegMeshes.filter(m => m.type === "slab");
-assertEqual(intCySegSlabs.length, 3, "Courtyard segment has 1 slab per floor");
 
 // =============================================================
 

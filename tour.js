@@ -4,13 +4,11 @@
 function createTourSteps(config) {
   var lot = config.lot || "single";
   var stories = config.stories || 3;
-  var buildingType = config.buildingType || "standard";
 
   // Determine building dimensions for camera scaling
   var lotConfigs = {
     single: { buildableWidth: 20, buildableDepth: 80 },
     double: { buildableWidth: 45, buildableDepth: 80 },
-    corner: { buildableWidth: 22.5, buildableDepth: 80 },
   };
   var dims = lotConfigs[lot] || lotConfigs.single;
   var bw = dims.buildableWidth;
@@ -88,20 +86,6 @@ function createTourSteps(config) {
       cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
       cameraTarget: { x: 0, y: totalHeight / 2, z: 0 },
       highlights: ["all"],
-    });
-  }
-
-  // Courtyard step (only for L or U building types)
-  var isCourtyardMode = buildingType === "L" || buildingType === "U";
-  if (isCourtyardMode) {
-    steps.push({
-      id: "courtyard",
-      title: "Courtyard buildings become possible",
-      description: "Multiple single-stair clusters form " + (buildingType === "L" ? "L-shapes" : "U-shapes") + " with shared open space. Units face the courtyard with natural light on 3 sides.",
-      cameraPosition: { x: 0, y: 80 * scale, z: 100 * scale },
-      cameraTarget: { x: 0, y: 10, z: 0 },
-      highlights: ["courtyard"],
-      requiresBuildingType: buildingType,
     });
   }
 

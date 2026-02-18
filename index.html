@@ -561,52 +561,6 @@
     .stats-table .diff-negative { color: var(--red); font-weight: 600; }
     .stats-table .diff-zero { color: var(--text-muted); }
 
-    /* ===== COURTYARD FEATURE CARDS ===== */
-    .courtyard-features {
-      display: none;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.65rem;
-      padding: 1.25rem 0 0;
-      max-width: 640px;
-      margin: 0 auto;
-    }
-    .courtyard-features.visible {
-      display: flex;
-    }
-    .courtyard-feature {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.85rem 1.1rem;
-      text-align: center;
-      flex: 1 1 120px;
-      max-width: 160px;
-      transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s;
-    }
-    .courtyard-feature:hover {
-      transform: scale(1.04);
-      border-color: rgba(91, 191, 130, 0.35);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 20px rgba(91, 191, 130, 0.06);
-    }
-    .courtyard-feature .value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--reform);
-      display: block;
-      line-height: 1.15;
-    }
-    .courtyard-feature .label {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.58rem;
-      color: var(--text-muted);
-      display: block;
-      margin-top: 0.25rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
     /* ===== TOOLTIP ===== */
     .tooltip {
       position: fixed;
@@ -891,9 +845,6 @@
       .footer-cta { font-size: 1.3rem; }
       .key-facts { grid-template-columns: repeat(2, 1fr); }
       .context-panel { margin: 0 1rem; }
-      .courtyard-features { gap: 0.5rem; }
-      .courtyard-feature { flex: 1 1 100px; max-width: 140px; padding: 0.7rem 0.75rem; }
-      .courtyard-feature .value { font-size: 1.1rem; }
       #three-container { height: 400px; }
       .tour-annotation { max-width: 300px; padding: 0.75rem 1rem; }
       .tour-annotation h4 { font-size: 0.85rem; }
@@ -947,7 +898,6 @@
       <select id="lot-select">
         <option value="single">Single (25&times;125)</option>
         <option value="double">Double (50&times;125)</option>
-        <option value="corner">Corner (25&times;125)</option>
       </select>
     </div>
     <div class="control-group">
@@ -957,21 +907,6 @@
         <button data-value="3" class="active">3</button>
         <button data-value="4">4</button>
       </div>
-    </div>
-    <div class="control-group">
-      <label>Ground Floor</label>
-      <select id="ground-select">
-        <option value="residential">Residential</option>
-        <option value="commercial">Commercial/Retail</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label>Building Type</label>
-      <select id="building-type-select">
-        <option value="standard">Standard Block</option>
-        <option value="L">L-Shape Courtyard</option>
-        <option value="U">U-Shape Courtyard</option>
-      </select>
     </div>
   </div>
 
@@ -987,8 +922,6 @@
     <div class="legend-item"><span class="legend-swatch" style="background:#D4903A;"></span> Hallway</div>
     <div class="legend-item"><span class="legend-swatch" style="background:#D9B84A;"></span> Window Wall</div>
     <div class="legend-item"><span class="legend-swatch" style="background:#EDE8DF;"></span> Livable Space</div>
-    <div class="legend-item"><span class="legend-swatch" style="background:#3DA89A;"></span> Commercial</div>
-    <div class="legend-item"><span class="legend-swatch" style="background:#86efac; opacity:0.6;"></span> Courtyard</div>
   </div>
 
   <!-- FLOOR PLAN TAB -->
@@ -1010,8 +943,6 @@
           <div id="reform-svg"></div>
         </div>
       </div>
-
-      <div class="courtyard-features" id="courtyard-features"></div>
 
       <div class="stats-section">
         <h3 id="per-floor-heading">Per-Floor Comparison (Floor <span id="stats-floor-num">1</span>)</h3>
@@ -1095,7 +1026,6 @@
   <script src="renderer.js"></script>
   <script src="stats.js"></script>
   <script src="state.js"></script>
-  <script src="courtyard.js"></script>
   <script src="mesh.js"></script>
   <script src="viewer3d.js"></script>
   <script src="tour.js"></script>
@@ -1107,8 +1037,6 @@
     // --- DOM refs ---
     const lotSelect = document.getElementById('lot-select');
     const storiesGroup = document.getElementById('stories-group');
-    const groundSelect = document.getElementById('ground-select');
-    const buildingTypeSelect = document.getElementById('building-type-select');
     const floorSelector = document.getElementById('floor-selector');
     const floorNote = document.getElementById('floor-note');
     const narrativeHeadline = document.getElementById('narrative-headline');
@@ -1119,15 +1047,10 @@
     const wholeBuildingBody = document.querySelector('#whole-building-table tbody');
     const tooltip = document.getElementById('tooltip');
     const contextPanel = document.getElementById('context-panel');
-    const courtyardFeatures = document.getElementById('courtyard-features');
-    const currentPanelLabel = document.querySelector('#current-panel h3');
-    const reformPanelLabel = document.querySelector('#reform-panel h3');
 
     // --- Initialize controls from config ---
     function syncControlsToConfig() {
       lotSelect.value = currentConfig.lot;
-      groundSelect.value = currentConfig.ground;
-      buildingTypeSelect.value = currentConfig.buildingType || 'standard';
       storiesGroup.querySelectorAll('button').forEach(b => {
         b.classList.toggle('active', b.dataset.value === String(currentConfig.stories));
       });
@@ -1135,9 +1058,7 @@
 
     // --- Render everything ---
     function render() {
-      const config = { lot: currentConfig.lot, stories: currentConfig.stories, ground: currentConfig.ground };
-      const buildingType = currentConfig.buildingType || 'standard';
-      const isCourtyardMode = buildingType === 'L' || buildingType === 'U';
+      const config = { lot: currentConfig.lot, stories: currentConfig.stories };
 
       const current = generateLayout({ ...config, stair: 'current' });
       const reform = generateLayout({ ...config, stair: 'reform' });
@@ -1161,12 +1082,7 @@
       }
 
       // Narrative headline
-      if (isCourtyardMode) {
-        const shapeLabel = buildingType === 'L' ? 'L-shape' : 'U-shape';
-        narrativeHeadline.innerHTML = `This building form is <strong>impossible under current code</strong>. Single stair reform makes ${shapeLabel} courtyard buildings possible — apartments face shared open space with natural light on 3 sides.`;
-      } else if (currentConfig.ground === 'commercial' && currentFloorIndex === 0) {
-        narrativeHeadline.innerHTML = 'The ground floor retail space is the same under both codes. <strong>Select Floor 3</strong> to see how reform reclaims residential space above.';
-      } else if (currentConfig.stories > 2) {
+      if (currentConfig.stories > 2) {
         const currFloorTemp = current.floors[currentFloorIndex];
         const refFloorTemp = reform.floors[currentFloorIndex];
         const cLiv = currFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
@@ -1180,22 +1096,8 @@
         narrativeHeadline.innerHTML = '';
       }
 
-      // Context panel — mode-specific advocacy content
-      if (isCourtyardMode) {
-        contextPanel.style.display = '';
-        contextPanel.innerHTML = `<ul>
-          <li>Courtyard apartments provided <strong>family-sized homes for over a century</strong> in Chicago before the 1957 zoning code killed them with parking minimums</li>
-          <li>The 2025 Connected Communities Ordinance removed parking barriers, but the <strong>two-stair requirement remains the final obstacle</strong> — fire escapes are banned, so 2 interior stairs + hallways make wrap-around window layouts infeasible</li>
-          <li>Single stair reform restores the courtyard form: <strong>units face shared open space</strong> with natural light on 3 sides</li>
-        </ul>`;
-      } else if (currentConfig.ground === 'commercial') {
-        contextPanel.style.display = '';
-        contextPanel.innerHTML = `<ul>
-          <li>Chicago's <strong>25-foot lot</strong> is so narrow that 3 staircases consume a huge share of the floor plate on residential floors</li>
-          <li>Mixed-use "live above, shop below" buildings create <strong>walkable neighborhoods</strong> — but upper-floor inefficiency limits what gets built</li>
-          <li>Single stair reform: <strong>1 stair in the corner</strong> leaves maximum retail frontage and reclaims residential space above</li>
-        </ul>`;
-      } else if (currentConfig.stories > 2) {
+      // Context panel
+      if (currentConfig.stories > 2) {
         contextPanel.style.display = '';
         contextPanel.innerHTML = `<ul>
           <li>Fire spread drops from <strong>46% to 2%</strong> with sprinklers + alarms (2024 NFPA study) — single stair buildings are just as safe</li>
@@ -1206,17 +1108,13 @@
       }
 
       // Floor note
-      if (!isCourtyardMode) {
-        if (currentConfig.stories > 2) {
-          floorNote.textContent = 'All floors: Current code requires 3 staircases for buildings above 2 stories';
-        } else {
-          floorNote.textContent = '';
-        }
+      if (currentConfig.stories > 2) {
+        floorNote.textContent = 'All floors: Current code requires 3 staircases for buildings above 2 stories';
       } else {
         floorNote.textContent = '';
       }
 
-      // Reusable stat row helpers (used in both courtyard and standard modes)
+      // Reusable stat row helpers
       function addStatRow(table, label, curr, ref, diff, suffix) {
         const tr = document.createElement('tr');
         const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
@@ -1230,185 +1128,68 @@
         wholeBuildingBody.appendChild(tr);
       }
 
-      if (isCourtyardMode) {
-        // --- Courtyard standalone showcase mode ---
-        const shapeLabel = buildingType === 'L' ? 'L-Shape' : 'U-Shape';
+      // Reset table headers
+      const pfHead = document.querySelector('#per-floor-table thead tr');
+      pfHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th><th>Difference</th>';
+      const wbHead = document.querySelector('#whole-building-table thead tr');
+      wbHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th>';
+      document.getElementById('per-floor-heading').innerHTML = `Per-Floor Comparison (Floor <span id="stats-floor-num">${currentFloorIndex + 1}</span>)`;
+      document.getElementById('whole-building-heading').textContent = 'Whole-Building Summary';
 
-        // Hide left panel and delta panel
-        document.getElementById('current-panel').style.display = 'none';
-        deltaPanel.style.display = 'none';
+      // SVG
+      currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
+      reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
 
-        // Make reform panel full-width and centered
-        const reformPanel = document.getElementById('reform-panel');
-        reformPanel.style.maxWidth = '640px';
-        reformPanel.style.margin = '0 auto';
-        reformPanelLabel.textContent = `${shapeLabel} Courtyard`;
+      // Deltas for this floor
+      const currFloor = current.floors[currentFloorIndex];
+      const refFloor = reform.floors[currentFloorIndex];
+      const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
+      const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+      const deltaArea = refLivable - currLivable;
+      const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
+      const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+      const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
+      const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+      const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
 
-        // Render courtyard SVG in the reform panel
-        const cyLayout = generateCourtyardLayout({ shape: buildingType, stories: currentConfig.stories, ground: currentConfig.ground });
-        reformSvgEl.innerHTML = renderCourtyardSVG(cyLayout, currentFloorIndex);
-
-        // Gather courtyard stats for this floor
-        const cyWings = cyLayout.segments.length;
-        const cyLivable = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].livableSqft, 0);
-        const cyWindows = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.reduce((us, u) => us + u.windowWalls.length, 0), 0);
-        const cyBedrooms = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.reduce((us, u) => us + u.bedrooms, 0), 0);
-        const cyStairs = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].staircases.length, 0);
-        const cyFloorUnits = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].units.filter(u => u.type === 'residential').length, 0);
-        const cyFloorCirc = cyLayout.segments.reduce((s, seg) => s + seg.floors[currentFloorIndex].circulationSqft, 0);
-
-        // Populate courtyard feature cards
-        courtyardFeatures.classList.add('visible');
-        courtyardFeatures.innerHTML = '';
-        function addFeatureCard(value, label) {
-          const d = document.createElement('div');
-          d.className = 'courtyard-feature';
-          d.innerHTML = `<span class="value">${value}</span><span class="label">${label}</span>`;
-          courtyardFeatures.appendChild(d);
-        }
-        addFeatureCard(cyWings, 'Wings');
-        addFeatureCard(`${Math.round(cyLayout.courtyard.area)} sf`, 'Shared Courtyard');
-        addFeatureCard(cyFloorUnits, 'Units per Floor');
-        addFeatureCard(3, 'Window Walls / Unit');
-
-        // Stats tables — single-layout (no comparison columns)
-        document.getElementById('per-floor-heading').innerHTML = `Courtyard Layout (Floor ${currentFloorIndex + 1})`;
-        document.getElementById('whole-building-heading').textContent = 'Whole-Building Summary';
-
-        // Per-floor table: 2-column (label + courtyard)
-        const pfHead = document.querySelector('#per-floor-table thead tr');
-        pfHead.innerHTML = '<th></th><th>Courtyard</th>';
-        perFloorBody.innerHTML = '';
-        function addCyStatRow(table, label, value) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${label}</td><td>${value}</td>`;
-          table.appendChild(tr);
-        }
-        addCyStatRow(perFloorBody, 'Livable Area', `${Math.round(cyLivable)} sf`);
-        addCyStatRow(perFloorBody, 'Units', cyFloorUnits);
-        addCyStatRow(perFloorBody, 'Bedrooms', cyBedrooms);
-        addCyStatRow(perFloorBody, 'Window Walls', cyWindows);
-        addCyStatRow(perFloorBody, 'Staircases', cyStairs);
-        addCyStatRow(perFloorBody, 'Courtyard Space', `${Math.round(cyLayout.courtyard.area)} sf`);
-        addCyStatRow(perFloorBody, 'Circulation', `${Math.round(cyFloorCirc)} sf`);
-
-        // Whole-building table: 2-column (label + courtyard)
-        const wbHead = document.querySelector('#whole-building-table thead tr');
-        wbHead.innerHTML = '<th></th><th>Courtyard</th>';
-        wholeBuildingBody.innerHTML = '';
-        let cyTotalUnits = 0, cyTotalBedrooms = 0, cyTotalLivable = 0;
-        for (let fi = 0; fi < currentConfig.stories; fi++) {
-          for (const seg of cyLayout.segments) {
-            const sf = seg.floors[fi];
-            cyTotalUnits += sf.units.filter(u => u.type === 'residential').length;
-            cyTotalBedrooms += sf.units.reduce((s, u) => s + u.bedrooms, 0);
-            cyTotalLivable += sf.livableSqft;
-          }
-        }
-        const cyAvgUnit = cyTotalUnits > 0 ? cyTotalLivable / cyTotalUnits : 0;
-        function addCyWbRow(label, value) {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${label}</td><td>${value}</td>`;
-          wholeBuildingBody.appendChild(tr);
-        }
-        addCyWbRow('Total Units', cyTotalUnits);
-        addCyWbRow('Total Bedrooms', cyTotalBedrooms);
-        addCyWbRow('Avg Unit Size', `${Math.round(cyAvgUnit)} sf`);
-        addCyWbRow('Total Livable Area', `${Math.round(cyTotalLivable)} sf`);
-        addCyWbRow('Courtyard Space', `${Math.round(cyLayout.courtyard.area)} sf`);
-
-      } else {
-        // --- Standard mode: restore all panels ---
-        document.getElementById('current-panel').style.display = '';
-        deltaPanel.style.display = '';
-        const reformPanel = document.getElementById('reform-panel');
-        reformPanel.style.maxWidth = '';
-        reformPanel.style.margin = '';
-        courtyardFeatures.classList.remove('visible');
-        courtyardFeatures.innerHTML = '';
-
-        currentPanelLabel.textContent = 'Current Code';
-        currentPanelLabel.className = 'current-label';
-        reformPanelLabel.textContent = 'Single Stair Reform';
-
-        // Reset table headers and headings for standard mode
-        const pfHead = document.querySelector('#per-floor-table thead tr');
-        pfHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th><th>Difference</th>';
-        const wbHead = document.querySelector('#whole-building-table thead tr');
-        wbHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th>';
-        document.getElementById('per-floor-heading').innerHTML = `Per-Floor Comparison (Floor <span id="stats-floor-num">${currentFloorIndex + 1}</span>)`;
-        document.getElementById('whole-building-heading').textContent = 'Whole-Building Summary';
-
-        // SVG
-        currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
-        reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
-
-        // Deltas for this floor
-        const currFloor = current.floors[currentFloorIndex];
-        const refFloor = reform.floors[currentFloorIndex];
-        const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
-        const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
-        const deltaArea = refLivable - currLivable;
-        const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
-        const currWinWalls = currFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
-        const refWinWalls = refFloor.units.reduce((s, u) => s + u.windowWalls.length, 0);
-        const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
-        const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
-
-        deltaPanel.innerHTML = '';
-        function addDelta(value, unit, label) {
-          const sign = value > 0 ? '+' : value === 0 ? '' : '';
-          const d = document.createElement('div');
-          d.className = 'delta-item';
-          d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
-          deltaPanel.appendChild(d);
-        }
-
-        // Stats tables (computed early so commercial floor 1 can use whole-building data)
-        const fullStats = computeStats(current, reform);
-
-        if (currentConfig.ground === 'commercial' && currentFloorIndex === 0) {
-          // Commercial floor 1: show whole-building impact instead of per-floor zeros
-          const wbLabel = document.createElement('div');
-          wbLabel.style.cssText = 'font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:600;text-align:center;padding:0.25rem 0;';
-          wbLabel.textContent = 'Whole-Building Impact';
-          deltaPanel.appendChild(wbLabel);
-          const wb = fullStats.wholeBuilding;
-          addDelta(Math.round(wb.reform.totalLivableArea - wb.current.totalLivableArea), ' sf', 'Total Livable Area');
-          addDelta(wb.reform.totalBedrooms - wb.current.totalBedrooms, '', 'Total Bedrooms');
-          addDelta(Math.round(wb.reform.totalCirculation - wb.current.totalCirculation), ' sf', 'Circulation Saved');
-        } else {
-          addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
-          addDelta(Number(deltaPct), '%', 'More Space');
-          addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
-          addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
-          addDelta(refBR - currBR, '', 'Bedrooms');
-        }
-
-        // Per-floor table
-        const pf = fullStats.perFloor[currentFloorIndex];
-        perFloorBody.innerHTML = '';
-        // addStatRow is defined above the if/else block
-        addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
-        addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
-        addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
-        addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
-        addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
-        addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
-        addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
-
-        // Whole-building table
-        wholeBuildingBody.innerHTML = '';
-        const wb = fullStats.wholeBuilding;
-        // addWbRow is defined above the if/else block
-        addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
-        addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
-        addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
-        addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
-        addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
+      deltaPanel.innerHTML = '';
+      function addDelta(value, unit, label) {
+        const sign = value > 0 ? '+' : value === 0 ? '' : '';
+        const d = document.createElement('div');
+        d.className = 'delta-item';
+        d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
+        deltaPanel.appendChild(d);
       }
 
-      // Update hero stat cards based on mode
+      const fullStats = computeStats(current, reform);
+
+      addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
+      addDelta(Number(deltaPct), '%', 'More Space');
+      addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
+      addDelta(refWinWalls - currWinWalls, '', 'Window Walls');
+      addDelta(refBR - currBR, '', 'Bedrooms');
+
+      // Per-floor table
+      const pf = fullStats.perFloor[currentFloorIndex];
+      perFloorBody.innerHTML = '';
+      addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
+      addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
+      addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
+      addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
+      addStatRow(perFloorBody, 'Window Walls', pf.current.windowWalls, pf.reform.windowWalls, pf.reform.windowWalls - pf.current.windowWalls);
+      addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
+      addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
+
+      // Whole-building table
+      wholeBuildingBody.innerHTML = '';
+      const wb = fullStats.wholeBuilding;
+      addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
+      addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
+      addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
+      addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
+      addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
+
+      // Update hero stat cards
       const s1v = document.getElementById('hero-stat1-value');
       const s1l = document.getElementById('hero-stat1-label');
       const s2v = document.getElementById('hero-stat2-value');
@@ -1416,40 +1197,27 @@
       const s3v = document.getElementById('hero-stat3-value');
       const s3l = document.getElementById('hero-stat3-label');
 
-      if (isCourtyardMode) {
-        const segCount = buildingType === 'L' ? 2 : 3;
-        s1v.innerHTML = `1 <span class="arrow">per</span> wing`;
-        s1l.textContent = 'Stair per Wing';
-        s2v.textContent = `${segCount} Wings`;
-        s2l.textContent = `${buildingType === 'L' ? 'L-Shape' : 'U-Shape'} Courtyard`;
-        const cyL = generateCourtyardLayout({ shape: buildingType, stories: currentConfig.stories, ground: currentConfig.ground });
-        s3v.textContent = `+${Math.round(cyL.courtyard.area)} sf`;
-        s3l.textContent = 'Shared Courtyard';
-      } else {
-        // Compute from actual layout data
-        const heroStats = computeStats(current, reform);
-        const hs = heroStats.wholeBuilding;
-        const livPct = hs.current.totalLivableArea > 0
-          ? Math.round(((hs.reform.totalLivableArea - hs.current.totalLivableArea) / hs.current.totalLivableArea) * 100)
-          : 0;
-        // Find a representative floor 3+ for bedroom comparison
-        let currBRPerUnit = 2, refBRPerUnit = 3;
-        if (currentConfig.stories >= 3) {
-          const f3c = current.floors[2];
-          const f3r = reform.floors[2];
-          const cUnits = f3c.units.filter(u => u.type === 'residential');
-          const rUnits = f3r.units.filter(u => u.type === 'residential');
-          if (cUnits.length > 0) currBRPerUnit = Math.round(cUnits.reduce((s, u) => s + u.bedrooms, 0) / cUnits.length);
-          if (rUnits.length > 0) refBRPerUnit = Math.round(rUnits.reduce((s, u) => s + u.bedrooms, 0) / rUnits.length);
-        }
-        const currStairsF3 = currentConfig.stories >= 3 ? current.floors[2].staircases.length : 1;
-        s1v.innerHTML = `${currStairsF3} <span class="arrow">&rarr;</span> 1`;
-        s1l.textContent = 'Staircases per Building';
-        s2v.textContent = `+${livPct}%`;
-        s2l.textContent = 'Livable Space per Floor';
-        s3v.innerHTML = `${currBRPerUnit} <span class="arrow">&rarr;</span> ${refBRPerUnit} BR`;
-        s3l.textContent = 'Bedrooms per Unit';
+      const heroStats = computeStats(current, reform);
+      const hs = heroStats.wholeBuilding;
+      const livPct = hs.current.totalLivableArea > 0
+        ? Math.round(((hs.reform.totalLivableArea - hs.current.totalLivableArea) / hs.current.totalLivableArea) * 100)
+        : 0;
+      let currBRPerUnit = 2, refBRPerUnit = 3;
+      if (currentConfig.stories >= 3) {
+        const f3c = current.floors[2];
+        const f3r = reform.floors[2];
+        const cUnits = f3c.units.filter(u => u.type === 'residential');
+        const rUnits = f3r.units.filter(u => u.type === 'residential');
+        if (cUnits.length > 0) currBRPerUnit = Math.round(cUnits.reduce((s, u) => s + u.bedrooms, 0) / cUnits.length);
+        if (rUnits.length > 0) refBRPerUnit = Math.round(rUnits.reduce((s, u) => s + u.bedrooms, 0) / rUnits.length);
       }
+      const currStairsF3 = currentConfig.stories >= 3 ? current.floors[2].staircases.length : 1;
+      s1v.innerHTML = `${currStairsF3} <span class="arrow">&rarr;</span> 1`;
+      s1l.textContent = 'Staircases per Building';
+      s2v.textContent = `+${livPct}%`;
+      s2l.textContent = 'Livable Space per Floor';
+      s3v.innerHTML = `${currBRPerUnit} <span class="arrow">&rarr;</span> ${refBRPerUnit} BR`;
+      s3l.textContent = 'Bedrooms per Unit';
 
       // Update URL hash
       window.history.replaceState(null, '', encodeConfigToHash(currentConfig));
@@ -1520,16 +1288,6 @@
     // --- Event listeners ---
     lotSelect.addEventListener('change', () => {
       currentConfig.lot = lotSelect.value;
-      render();
-    });
-
-    groundSelect.addEventListener('change', () => {
-      currentConfig.ground = groundSelect.value;
-      render();
-    });
-
-    buildingTypeSelect.addEventListener('change', () => {
-      currentConfig.buildingType = buildingTypeSelect.value;
       render();
     });
 

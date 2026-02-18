@@ -4,7 +4,6 @@
 const LOT_CONFIGS = {
   single: { width: 25, depth: 125, sideSetback: 5, buildableWidth: 20 },
   double: { width: 50, depth: 125, sideSetback: 5, buildableWidth: 45 },
-  corner: { width: 25, depth: 125, sideSetback: 2.5, buildableWidth: 22.5 },
 };
 
 const FRONT_SETBACK = 15;
@@ -21,7 +20,7 @@ function rectOverlapArea(a, b) {
 }
 
 function generateLayout(config) {
-  const { lot: lotType, stories, stair, ground } = config;
+  const { lot: lotType, stories, stair } = config;
   const lotConfig = LOT_CONFIGS[lotType];
   const buildableDepth = lotConfig.depth - FRONT_SETBACK - REAR_SETBACK; // 80ft
 
@@ -59,8 +58,6 @@ function generateLayout(config) {
   const floors = [];
   for (let i = 0; i < stories; i++) {
     const floorLevel = i + 1;
-    const isGroundFloor = i === 0;
-    const isCommercialGround = isGroundFloor && ground === "commercial";
 
     const floor = generateFloor({
       lot,
@@ -68,7 +65,6 @@ function generateLayout(config) {
       floorLevel,
       staircaseCount,
       needsHallway,
-      isCommercialGround,
     });
     floors.push(floor);
   }
@@ -77,13 +73,7 @@ function generateLayout(config) {
 }
 
 function generateFloor(params) {
-  const { lot, lotType, floorLevel, staircaseCount, needsHallway, isCommercialGround } = params;
-  const bw = lot.buildableWidth;
-  const bd = lot.buildableDepth;
-
-  if (isCommercialGround) {
-    return generateCommercialFloor(lot, lotType, staircaseCount, needsHallway);
-  }
+  const { lot, lotType, floorLevel, staircaseCount, needsHallway } = params;
 
   if (lotType === "double" && needsHallway) {
     return generateDoubleHallwayFloor(lot, floorLevel);
@@ -94,19 +84,18 @@ function generateFloor(params) {
   }
 
   if (needsHallway && staircaseCount === 3) {
-    return generateMultiStairFloor(lot, lotType, floorLevel);
+    return generateMultiStairFloor(lot, floorLevel);
   }
 
-  return generateStandardFloor(lot, lotType, staircaseCount, floorLevel);
+  return generateStandardFloor(lot, staircaseCount, floorLevel);
 }
 
-// Single/corner lot: single stair, 2 full-width units
+// Single lot: single stair, 2 full-width units
 // Staircase renders on top of units where it overlaps
-function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
+function generateStandardFloor(lot, staircaseCount, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
   const halfD = bd / 2;
-  const isCorner = lotType === "corner";
 
   const staircases = [];
   if (staircaseCount === 3) {
@@ -125,10 +114,6 @@ function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
 
   const frontWindows = ["north"];
   const backWindows = ["south"];
-  if (isCorner) {
-    frontWindows.push("east");
-    backWindows.push("east");
-  }
 
   const overlapA = staircases.reduce((s, st) => s + rectOverlapArea(unitA, st), 0);
   const overlapB = staircases.reduce((s, st) => s + rectOverlapArea(unitB, st), 0);
@@ -252,46 +237,11 @@ function generateDoubleHallwayFloor(lot, floorLevel) {
   };
 }
 
-// Commercial ground floor: 1 full-width retail unit, stair overlaid
-function generateCommercialFloor(lot, lotType, staircaseCount, needsHallway) {
-  const bw = lot.buildableWidth;
-  const bd = lot.buildableDepth;
-
-  // Place stair in front-left corner for commercial
-  const staircases = [
-    { x: 0, y: 0, w: STAIR_W, d: STAIR_D, type: "interior" },
-  ];
-  const hallways = [];
-
-  // Commercial unit spans full floor; sqft deducts stair overlap
-  const stairArea = STAIR_W * STAIR_D;
-  const sqft = bw * bd - stairArea;
-
-  const units = [{
-    id: "R1", x: 0, y: 0, w: bw, d: bd,
-    sqft,
-    bedrooms: 0,
-    windowWalls: ["north", "south"],
-    position: "full",
-    type: "commercial",
-  }];
-
-  return {
-    level: 1,
-    units,
-    staircases,
-    hallways,
-    circulationSqft: stairArea,
-    livableSqft: sqft,
-  };
-}
-
-// Single/corner lot with 3 staircases: wider circulation zone with hallways connecting stairs
-function generateMultiStairFloor(lot, lotType, floorLevel) {
+// Single lot with 3 staircases: wider circulation zone with hallways connecting stairs
+function generateMultiStairFloor(lot, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
   const halfD = bd / 2;
-  const isCorner = lotType === "corner";
   const circW = MULTI_STAIR_W;
 
   // 3 staircases distributed front/center/rear within circulation column
@@ -314,10 +264,6 @@ function generateMultiStairFloor(lot, lotType, floorLevel) {
 
   const frontWindows = ["north"];
   const backWindows = ["south"];
-  if (isCorner) {
-    frontWindows.push("east");
-    backWindows.push("east");
-  }
 
   // Livable area = unit rects + dead zone in circulation column allocated to units
   const circArea = circW * bd;

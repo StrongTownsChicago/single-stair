@@ -2,28 +2,15 @@
 // Converts layout engine output to mesh descriptors for Three.js
 
 const RESIDENTIAL_FLOOR_HEIGHT = 10;
-const COMMERCIAL_FLOOR_HEIGHT = 14;
 
 function buildMeshData(layout) {
   const meshes = [];
   const numFloors = layout.floors.length;
-  const totalStories = numFloors;
-
-  // Calculate floor Y offsets (commercial ground floor is taller)
-  const floorYOffsets = [];
-  let currentY = 0;
-  for (let i = 0; i < numFloors; i++) {
-    floorYOffsets.push(currentY);
-    const isCommercialGround = i === 0 && layout.floors[0].units.some(u => u.type === "commercial");
-    currentY += isCommercialGround ? COMMERCIAL_FLOOR_HEIGHT : RESIDENTIAL_FLOOR_HEIGHT;
-  }
-  const totalBuildingHeight = currentY;
+  const totalBuildingHeight = numFloors * RESIDENTIAL_FLOOR_HEIGHT;
 
   for (let i = 0; i < numFloors; i++) {
     const floor = layout.floors[i];
-    const yOffset = floorYOffsets[i];
-    const isCommercialGround = i === 0 && floor.units.some(u => u.type === "commercial");
-    const floorHeight = isCommercialGround ? COMMERCIAL_FLOOR_HEIGHT : RESIDENTIAL_FLOOR_HEIGHT;
+    const yOffset = i * RESIDENTIAL_FLOOR_HEIGHT;
 
     // Units
     for (const unit of floor.units) {
@@ -33,7 +20,7 @@ function buildMeshData(layout) {
         y: yOffset,
         z: unit.y,
         width: unit.w,
-        height: floorHeight,
+        height: RESIDENTIAL_FLOOR_HEIGHT,
         depth: unit.d,
         floorLevel: i,
         unitId: unit.id,
@@ -65,7 +52,7 @@ function buildMeshData(layout) {
         y: yOffset,
         z: hall.y,
         width: hall.w,
-        height: floorHeight,
+        height: RESIDENTIAL_FLOOR_HEIGHT,
         depth: hall.d,
         floorLevel: i,
       });

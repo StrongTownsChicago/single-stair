@@ -18,8 +18,6 @@ var MATERIAL_COLORS = {
   staircase: 0xBF5B4B,   // Muted terracotta
   hallway: 0xC4B5A5,     // Warm taupe
   slab: 0xCCC7BF,        // Concrete
-  commercial: 0x4FA393,   // Sage teal
-  courtyard: 0x7AD4A0,   // Soft green
   windowEdge: 0xD4A843,  // Warm gold
   edge: 0x6E6A64,        // Architectural edge lines
 };
@@ -29,7 +27,6 @@ var MATERIAL_OPACITY = {
   staircase: 1.0,
   hallway: 0.92,
   slab: 1.0,
-  commercial: 1.0,
 };
 
 var MATERIAL_ROUGHNESS = {
@@ -37,7 +34,6 @@ var MATERIAL_ROUGHNESS = {
   staircase: 0.72,
   hallway: 0.90,
   slab: 0.95,
-  commercial: 0.68,
 };
 
 // Material cache to reduce draw calls
@@ -133,13 +129,9 @@ function buildBuildingGroup(meshData, label) {
 
   for (var i = 0; i < dedupedMeshes.length; i++) {
     var meshDesc = dedupedMeshes[i];
-    var materialType = meshDesc.type;
-    if (meshDesc.type === "unit" && meshDesc.unitType === "commercial") {
-      materialType = "commercial";
-    }
 
     var geometry = new THREE.BoxGeometry(meshDesc.width, meshDesc.height, meshDesc.depth);
-    var material = getMaterial(materialType);
+    var material = getMaterial(meshDesc.type);
     var mesh = new THREE.Mesh(geometry, material);
 
     // Position: center of the box in Three.js coordinates
@@ -425,19 +417,12 @@ function renderBuildings(container, config) {
   // Ensure container is visible and has dimensions
   container.style.display = "block";
 
-  var buildingType = config.buildingType || "standard";
-  var isCourtyardMode = buildingType === "L" || buildingType === "U";
-
   var result = setupScene(container);
   _scene = result.scene;
   _camera = result.camera;
   _controls = result.controls;
 
-  if (isCourtyardMode) {
-    renderCourtyardBuilding(_scene, _camera, config, buildingType);
-  } else {
-    renderStandardBuildings(_scene, _camera, config);
-  }
+  renderStandardBuildings(_scene, _camera, config);
 
   // Ground plane
   var bw = 80; // default
@@ -482,14 +467,13 @@ function renderStandardBuildings(scene, camera, config) {
   var lotConfigs = {
     single: { buildableWidth: 20, buildableDepth: 80 },
     double: { buildableWidth: 45, buildableDepth: 80 },
-    corner: { buildableWidth: 22.5, buildableDepth: 80 },
   };
   var dims = lotConfigs[config.lot] || lotConfigs.single;
   var bw = dims.buildableWidth;
   var bd = dims.buildableDepth;
 
-  var currentLayout = generateLayout({ lot: config.lot, stories: config.stories, stair: "current", ground: config.ground });
-  var reformLayout = generateLayout({ lot: config.lot, stories: config.stories, stair: "reform", ground: config.ground });
+  var currentLayout = generateLayout({ lot: config.lot, stories: config.stories, stair: "current" });
+  var reformLayout = generateLayout({ lot: config.lot, stories: config.stories, stair: "reform" });
 
   var currentMeshData = buildMeshData(currentLayout);
   var reformMeshData = buildMeshData(reformLayout);
@@ -511,194 +495,6 @@ function renderStandardBuildings(scene, camera, config) {
   camera.lookAt(0, totalHeight / 3, 0);
   _controls.target.set(0, totalHeight / 3, 0);
   _controls.update();
-}
-
-function renderCourtyardBuilding(scene, camera, config, buildingType) {
-  var cyLayout = generateCourtyardLayout({ shape: buildingType, stories: config.stories, ground: config.ground });
-
-  // Calculate bounding box for centering
-  var minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-  var maxY = 0;
-
-  for (var s = 0; s < cyLayout.segments.length; s++) {
-    var seg = cyLayout.segments[s];
-    for (var f = 0; f < seg.floors.length; f++) {
-      var floor = seg.floors[f];
-      for (var u = 0; u < floor.units.length; u++) {
-        var unit = floor.units[u];
-        if (unit.x < minX) minX = unit.x;
-        if (unit.x + unit.w > maxX) maxX = unit.x + unit.w;
-        if (unit.y < minZ) minZ = unit.y;
-        if (unit.y + unit.d > maxZ) maxZ = unit.y + unit.d;
-      }
-      for (var st = 0; st < floor.staircases.length; st++) {
-        var stair = floor.staircases[st];
-        if (stair.x < minX) minX = stair.x;
-        if (stair.x + stair.w > maxX) maxX = stair.x + stair.w;
-        if (stair.y < minZ) minZ = stair.y;
-        if (stair.y + stair.d > maxZ) maxZ = stair.y + stair.d;
-      }
-    }
-  }
-
-  var totalHeight = config.stories * 10;
-  maxY = totalHeight;
-  var centerX = (minX + maxX) / 2;
-  var centerZ = (minZ + maxZ) / 2;
-  var extentX = maxX - minX;
-  var extentZ = maxZ - minZ;
-
-  var courtyardGroup = new THREE.Group();
-
-  // Build each segment
-  for (var s = 0; s < cyLayout.segments.length; s++) {
-    var seg = cyLayout.segments[s];
-    var segMeshes = buildCourtyardSegmentMeshes(seg, config.stories, config.ground);
-
-    for (var m = 0; m < segMeshes.length; m++) {
-      var meshDesc = segMeshes[m];
-      var materialType = meshDesc.type;
-      if (meshDesc.type === "unit" && meshDesc.unitType === "commercial") {
-        materialType = "commercial";
-      }
-
-      var geometry = new THREE.BoxGeometry(meshDesc.width, meshDesc.height, meshDesc.depth);
-      var material = getMaterial(materialType);
-      var mesh = new THREE.Mesh(geometry, material);
-
-      mesh.position.set(
-        meshDesc.x + meshDesc.width / 2 - centerX,
-        meshDesc.y + meshDesc.height / 2,
-        meshDesc.z + meshDesc.depth / 2 - centerZ
-      );
-
-      // Enable shadows
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-
-      courtyardGroup.add(mesh);
-
-      // Architectural edge lines (skip slabs)
-      if (meshDesc.type !== "slab") {
-        addEdgeLines(courtyardGroup, geometry, mesh.position);
-      }
-    }
-  }
-
-  // Courtyard ground plane (green)
-  var cb = cyLayout.courtyard.bounds;
-  var cyGeometry = new THREE.PlaneGeometry(cb.w, cb.d);
-  var cyMaterial = new THREE.MeshStandardMaterial({
-    color: MATERIAL_COLORS.courtyard,
-    roughness: 0.9,
-    metalness: 0.0,
-    transparent: true,
-    opacity: 0.4,
-  });
-  var cyPlane = new THREE.Mesh(cyGeometry, cyMaterial);
-  cyPlane.rotation.x = -Math.PI / 2;
-  cyPlane.position.set(
-    cb.x + cb.w / 2 - centerX,
-    0.1,
-    cb.y + cb.d / 2 - centerZ
-  );
-  cyPlane.receiveShadow = true;
-  courtyardGroup.add(cyPlane);
-
-  // Label
-  var shapeLabel = buildingType === "L" ? "L-Shape Courtyard" : "U-Shape Courtyard";
-  var sprite = createTextSprite(shapeLabel, "#5BBF82");
-  sprite.position.set(0, maxY + 5, 0);
-  courtyardGroup.add(sprite);
-
-  scene.add(courtyardGroup);
-
-  // Camera position
-  var maxExtent = Math.max(extentX, extentZ);
-  camera.position.set(maxExtent * 0.8, totalHeight * 2, maxExtent * 1.2);
-  camera.lookAt(0, totalHeight / 3, 0);
-  _controls.target.set(0, totalHeight / 3, 0);
-  _controls.update();
-}
-
-function buildCourtyardSegmentMeshes(segment, stories, ground) {
-  var meshes = [];
-  var FLOOR_HEIGHT = 10;
-  var COMMERCIAL_HEIGHT = 14;
-
-  var currentY = 0;
-  for (var i = 0; i < segment.floors.length; i++) {
-    var floor = segment.floors[i];
-    var isCommercialGround = i === 0 && floor.units.some(function (u) { return u.type === "commercial"; });
-    var floorHeight = isCommercialGround ? COMMERCIAL_HEIGHT : FLOOR_HEIGHT;
-
-    // Units
-    for (var u = 0; u < floor.units.length; u++) {
-      var unit = floor.units[u];
-      meshes.push({
-        type: "unit",
-        x: unit.x,
-        y: currentY,
-        z: unit.y,
-        width: unit.w,
-        height: floorHeight,
-        depth: unit.d,
-        floorLevel: i,
-        unitType: unit.type,
-        windowWalls: unit.windowWalls,
-      });
-    }
-
-    // Staircases (span full height, only emit once from floor 0)
-    if (i === 0) {
-      var totalHeight = 0;
-      var tempY = 0;
-      for (var fi = 0; fi < stories; fi++) {
-        var fIsComm = fi === 0 && floor.units.some(function (u) { return u.type === "commercial"; });
-        totalHeight += fIsComm ? COMMERCIAL_HEIGHT : FLOOR_HEIGHT;
-      }
-
-      for (var st = 0; st < floor.staircases.length; st++) {
-        var stair = floor.staircases[st];
-        meshes.push({
-          type: "staircase",
-          x: stair.x,
-          y: 0,
-          z: stair.y,
-          width: stair.w,
-          height: totalHeight,
-          depth: stair.d,
-          floorLevel: 0,
-        });
-      }
-    }
-
-    // Floor slab
-    var allElements = floor.units.concat(floor.staircases);
-    var slabMinX = Infinity, slabMaxX = -Infinity, slabMinZ = Infinity, slabMaxZ = -Infinity;
-    for (var e = 0; e < allElements.length; e++) {
-      var el = allElements[e];
-      if (el.x < slabMinX) slabMinX = el.x;
-      if ((el.x + el.w) > slabMaxX) slabMaxX = el.x + el.w;
-      if (el.y < slabMinZ) slabMinZ = el.y;
-      if ((el.y + el.d) > slabMaxZ) slabMaxZ = el.y + el.d;
-    }
-
-    meshes.push({
-      type: "slab",
-      x: slabMinX,
-      y: currentY,
-      z: slabMinZ,
-      width: slabMaxX - slabMinX,
-      height: 0.5,
-      depth: slabMaxZ - slabMinZ,
-      floorLevel: i,
-    });
-
-    currentY += floorHeight;
-  }
-
-  return meshes;
 }
 
 // Tour integration
@@ -781,7 +577,6 @@ if (typeof module !== "undefined" && module.exports) {
     MATERIAL_COLORS: MATERIAL_COLORS,
     MATERIAL_OPACITY: MATERIAL_OPACITY,
     buildBuildingGroup: buildBuildingGroup,
-    buildCourtyardSegmentMeshes: buildCourtyardSegmentMeshes,
     disposeScene: disposeScene,
   };
 }
