@@ -346,15 +346,18 @@ assertEqual(
 console.log("=== No Overlaps Tests ===");
 
 // Bounding box overlap check for all elements on each floor
+// Reform units intentionally overlap staircases (stair renders on top)
 for (const config of [curr_single_3, reform_single_3, curr_double_3]) {
   for (const floor of config.floors) {
     const allElements = [
-      ...floor.units,
-      ...floor.staircases,
-      ...floor.hallways,
+      ...floor.units.map(u => ({ ...u, _kind: "unit" })),
+      ...floor.staircases.map(s => ({ ...s, _kind: "staircase" })),
+      ...floor.hallways.map(h => ({ ...h, _kind: "hallway" })),
     ];
     for (let i = 0; i < allElements.length; i++) {
       for (let j = i + 1; j < allElements.length; j++) {
+        const kinds = [allElements[i]._kind, allElements[j]._kind].sort().join("-");
+        if (kinds === "staircase-unit") continue;
         assert(
           !overlaps(allElements[i], allElements[j]),
           `Floor ${floor.level}: elements ${i} and ${j} must not overlap`,

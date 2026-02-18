@@ -14,6 +14,12 @@ const STAIR_D = 10;
 const HALLWAY_W = 5;
 const MULTI_STAIR_W = 6; // Wider circulation zone for 3-staircase floors (landing + fire doors + corridors)
 
+function rectOverlapArea(a, b) {
+  const overlapX = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+  const overlapY = Math.max(0, Math.min(a.y + a.d, b.y + b.d) - Math.max(a.y, b.y));
+  return overlapX * overlapY;
+}
+
 function generateLayout(config) {
   const { lot: lotType, stories, stair, ground } = config;
   const lotConfig = LOT_CONFIGS[lotType];
@@ -94,7 +100,8 @@ function generateFloor(params) {
   return generateStandardFloor(lot, lotType, staircaseCount, floorLevel);
 }
 
-// Single/corner lot: stairs along left wall, 2 units to the right
+// Single/corner lot: single stair, 2 full-width units
+// Staircase renders on top of units where it overlaps
 function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
@@ -110,16 +117,11 @@ function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
     staircases.push({ x: 0, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
   }
 
-  // Units occupy the right portion of the floor (to the right of staircase column)
-  const unitW = bw - STAIR_W;
-  const unitA = { x: STAIR_W, y: 0, w: unitW, d: halfD };
-  const unitB = { x: STAIR_W, y: halfD, w: unitW, d: halfD };
+  // Units span full buildable width; sqft deducts stair overlap
+  const unitA = { x: 0, y: 0, w: bw, d: halfD };
+  const unitB = { x: 0, y: halfD, w: bw, d: halfD };
 
-  // Calculate dead zone beside stairs (left column not covered by stairs)
-  const stairColumnArea = STAIR_W * bd;
   const stairPhysicalArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
-  const deadZone = stairColumnArea - stairPhysicalArea;
-  const deadPerUnit = deadZone / 2;
 
   const frontWindows = ["north"];
   const backWindows = ["south"];
@@ -128,8 +130,10 @@ function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
     backWindows.push("east");
   }
 
-  const unitASqft = unitA.w * unitA.d + deadPerUnit;
-  const unitBSqft = unitB.w * unitB.d + deadPerUnit;
+  const overlapA = staircases.reduce((s, st) => s + rectOverlapArea(unitA, st), 0);
+  const overlapB = staircases.reduce((s, st) => s + rectOverlapArea(unitB, st), 0);
+  const unitASqft = unitA.w * unitA.d - overlapA;
+  const unitBSqft = unitB.w * unitB.d - overlapB;
 
   const units = [
     {
@@ -154,11 +158,13 @@ function generateStandardFloor(lot, lotType, staircaseCount, floorLevel) {
   };
 }
 
-// Double lot without hallway: 1 staircase centered, 4 units in quadrants
+// Double lot without hallway: 1 staircase centered, 4 full-width quadrant units
+// Stair renders on top of units where it overlaps
 function generateDoubleFloor(lot, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
   const halfD = bd / 2;
+  const halfW = bw / 2;
 
   // Center staircase on width and depth
   const stairX = (bw - STAIR_W) / 2;
@@ -167,26 +173,18 @@ function generateDoubleFloor(lot, floorLevel) {
     { x: stairX, y: stairY, w: STAIR_W, d: STAIR_D, type: "interior" },
   ];
 
-  const leftW = stairX;
-  const rightW = bw - stairX - STAIR_W;
-
-  // 4 quadrant units split at center line — extend to halfD so no dead strips
-  // Stair renders on top of units where it overlaps
+  // 4 quadrant units split at bw/2; stair overlap deducted from sqft
   const quadrants = [
-    { id: "A", x: 0, y: 0, w: leftW, d: halfD, pos: "front-left", windows: ["north", "west"] },
-    { id: "B", x: stairX + STAIR_W, y: 0, w: rightW, d: halfD, pos: "front-right", windows: ["north", "east"] },
-    { id: "C", x: 0, y: halfD, w: leftW, d: halfD, pos: "rear-left", windows: ["south", "west"] },
-    { id: "D", x: stairX + STAIR_W, y: halfD, w: rightW, d: halfD, pos: "rear-right", windows: ["south", "east"] },
+    { id: "A", x: 0, y: 0, w: halfW, d: halfD, pos: "front-left", windows: ["north", "west"] },
+    { id: "B", x: halfW, y: 0, w: halfW, d: halfD, pos: "front-right", windows: ["north", "east"] },
+    { id: "C", x: 0, y: halfD, w: halfW, d: halfD, pos: "rear-left", windows: ["south", "west"] },
+    { id: "D", x: halfW, y: halfD, w: halfW, d: halfD, pos: "rear-right", windows: ["south", "east"] },
   ];
 
-  // Dead zone: only the vertical stair column not covered by quadrants or stair
   const stairArea = STAIR_W * STAIR_D;
-  const totalQuadArea = quadrants.reduce((s, q) => s + q.w * q.d, 0);
-  const deadZone = bw * bd - totalQuadArea - stairArea;
-  const deadPerUnit = deadZone / quadrants.length;
 
   const units = quadrants.map((q) => {
-    const sqft = q.w * q.d + deadPerUnit;
+    const sqft = q.w * q.d - rectOverlapArea(q, staircases[0]);
     return {
       id: q.id, x: q.x, y: q.y, w: q.w, d: q.d,
       sqft, bedrooms: estimateBedrooms(sqft, q.windows.length),
@@ -254,7 +252,7 @@ function generateDoubleHallwayFloor(lot, floorLevel) {
   };
 }
 
-// Commercial ground floor: 1 retail unit using full floor minus circulation
+// Commercial ground floor: 1 full-width retail unit, stair overlaid
 function generateCommercialFloor(lot, lotType, staircaseCount, needsHallway) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
@@ -265,14 +263,12 @@ function generateCommercialFloor(lot, lotType, staircaseCount, needsHallway) {
   ];
   const hallways = [];
 
-  // Commercial unit fills rest of floor
-  // Two non-overlapping rects: right of stair + below stair
-  // But we model it as one unit with adjusted sqft
+  // Commercial unit spans full floor; sqft deducts stair overlap
   const stairArea = STAIR_W * STAIR_D;
   const sqft = bw * bd - stairArea;
 
   const units = [{
-    id: "R1", x: STAIR_W, y: 0, w: bw - STAIR_W, d: bd,
+    id: "R1", x: 0, y: 0, w: bw, d: bd,
     sqft,
     bedrooms: 0,
     windowWalls: ["north", "south"],

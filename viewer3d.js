@@ -60,6 +60,13 @@ function getMaterial(type) {
     opacity: opacity,
   });
 
+  // Prevent z-fighting where staircase overlaps unit geometry
+  if (type === "staircase") {
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -1;
+    mat.polygonOffsetUnits = -1;
+  }
+
   _materialCache[type] = mat;
   return mat;
 }

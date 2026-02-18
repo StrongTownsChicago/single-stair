@@ -87,8 +87,8 @@ function renderFloorPlanSVG(layout, floorIndex) {
 
   // Units
   for (const unit of floor.units) {
-    const fill = unit.type === "commercial" ? "#3DA89A" : "#EDE8DF";
-    svg += `<rect x="${unit.x}" y="${unit.y}" width="${unit.w}" height="${unit.d}" fill="${fill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}" rx="0.3"/>`;
+    const unitFill = unit.type === "commercial" ? "#3DA89A" : "#EDE8DF";
+    svg += `<rect x="${unit.x}" y="${unit.y}" width="${unit.w}" height="${unit.d}" fill="${unitFill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}" rx="0.3"/>`;
 
     // Unit label
     const cx = unit.x + unit.w / 2;
