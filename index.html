@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Single Stair Visualizer — Chicago Single Stair Reform</title>
+  <title>Single Stair Visualizer - Chicago Single Stair Reform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -870,8 +870,8 @@
     <div class="hero-inner">
       <div class="hero-kicker">Chicago Building Code Reform</div>
       <h1>What If Chicago Allowed<br><span class="accent">Single Stair Buildings?</span></h1>
-      <p class="hero-subtitle">Chicago's building code forces 3 staircases into small apartment buildings over 2 stories &mdash; consuming space on every floor that could be bedrooms. A single staircase with sprinklers is just as safe, and already legal in Seattle, New York, Honolulu &amp; Austin.</p>
-      <div class="hero-cities">Already adopted by peer cities across the U.S.</div>
+      <p class="hero-subtitle">Above the second story, Chicago's building code requires each unit to have access to two stairways. On a standard 25-foot lot, that means three stairways per building, resulting in smaller, darker apartments with fewer bedrooms. Seattle, New York, Austin, and Honolulu already allow single stair with sprinklers.</p>
+      <div class="hero-cities">Peer cities have already adopted single stair reform</div>
     </div>
   </div>
 
@@ -997,11 +997,11 @@
           <div class="kf-label">Fire Spread with Sprinklers</div>
         </div>
         <div class="key-fact">
-          <div class="kf-value">3 Stairs</div>
+          <div class="kf-value">3 Stairways</div>
           <div class="kf-label">Required for 5-8 Units</div>
         </div>
         <div class="key-fact">
-          <div class="kf-value">2 Stairs</div>
+          <div class="kf-value">2 Stairways</div>
           <div class="kf-label">Required for 100+ Units</div>
         </div>
         <div class="key-fact">
@@ -1009,14 +1009,14 @@
           <div class="kf-label">Typical Chicago Lot Width</div>
         </div>
       </div>
-      <div class="footer-irony">A <strong>5-unit walk-up needs 3 staircases</strong> while a <strong>100+ unit high-rise needs only 2</strong> &mdash; the current code penalizes small buildings the most</div>
-      <div class="footer-peers"><strong>Already legal:</strong> Seattle (4 units/floor) &middot; New York &middot; Austin (5-story cap) &middot; Honolulu</div>
-      <div class="footer-cta">Support single stair reform in Chicago</div>
+      <div class="footer-irony">An apartment building with <strong>5-8 units needs three stairways</strong> under current code, while a <strong>100+ unit tower on a larger lot only needs two</strong>. These tradeoffs discourage builders from using a standard lot's full zoned capacity.</div>
+      <div class="footer-peers"><strong>Already adopted:</strong> Seattle (4 units/floor) &middot; New York &middot; Austin (5-story cap) &middot; Honolulu</div>
+      <div class="footer-cta">Help bring single stair reform to Chicago</div>
       <div class="footer-orgs">
         <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
       </div>
-      <div class="footer-safety"><strong>Safe &amp; proven:</strong> Single stair buildings with sprinklers have fire safety rates equal to multi-stair buildings &mdash; Pew Research, 2025</div>
-      <div class="footer-fine">Illustrative visualization for advocacy purposes. Not architectural drawings.</div>
+      <div class="footer-safety">Buildings with sprinklers and smoke alarms reduce the chance of fire spreading beyond the room of origin from about <strong>46% to 2%</strong> (2024 single stair policy study)</div>
+      <div class="footer-fine">Illustrative visualization for advocacy purposes, not architectural drawings.</div>
     </div>
   </footer>
 
@@ -1089,9 +1089,9 @@
         const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
         const dArea = Math.round(rLiv - cLiv);
         const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-        narrativeHeadline.innerHTML = `Current code forces 3 staircases into this floor plan, consuming <strong>${dArea} sf (+${dPct}%)</strong> of livable space that could be bedrooms.`;
+        narrativeHeadline.innerHTML = `Three stairways consume <strong>${dArea} sf (+${dPct}%)</strong> of this floor, limiting bedrooms and reducing access to windows and natural light.`;
       } else if (currentConfig.stories <= 2) {
-        narrativeHeadline.innerHTML = '2-story buildings already allow a single stair under current code. <strong>Choose 3 or 4 stories</strong> to see the impact of reform.';
+        narrativeHeadline.innerHTML = 'Chicago currently allows second-story units to access a single stairway. <strong>Choose 3 or 4 stories</strong> to see what changes above the second floor.';
       } else {
         narrativeHeadline.innerHTML = '';
       }
@@ -1100,8 +1100,8 @@
       if (currentConfig.stories > 2) {
         contextPanel.style.display = '';
         contextPanel.innerHTML = `<ul>
-          <li>Fire spread drops from <strong>46% to 2%</strong> with sprinklers + alarms (2024 NFPA study) — single stair buildings are just as safe</li>
-          <li>A <strong>5-8 unit building needs 3 staircases</strong> under current Chicago code, while a <strong>100+ unit tower needs only 2</strong></li>
+          <li>Buildings with sprinklers and smoke alarms reduce the chance of fire spreading beyond the room of origin from about <strong>46% to 2%</strong> (2024 study)</li>
+          <li>A building with <strong>5-8 units needs three stairways</strong> under current code, while a <strong>100+ unit tower only needs two</strong></li>
         </ul>`;
       } else {
         contextPanel.style.display = 'none';
@@ -1109,7 +1109,7 @@
 
       // Floor note
       if (currentConfig.stories > 2) {
-        floorNote.textContent = 'All floors: Current code requires 3 staircases for buildings above 2 stories';
+        floorNote.textContent = 'Above the second story, each unit must access two stairways, requiring three total on a standard lot';
       } else {
         floorNote.textContent = '';
       }
