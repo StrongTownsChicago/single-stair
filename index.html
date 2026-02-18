@@ -1,1419 +1,1755 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Single Stair Visualizer - Chicago Single Stair Reform</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
-    /* ===== DESIGN TOKENS ===== */
-    :root {
-      --bg-deep: #0A0D11;
-      --bg: #10131A;
-      --bg-surface: #171B24;
-      --bg-elevated: #1E2330;
-      --bg-hover: #262D3D;
-      --text: #EAE6DE;
-      --text-secondary: #A8A49C;
-      --text-muted: #6B6860;
-      --accent: #E8963A;
-      --accent-dim: rgba(232, 150, 58, 0.10);
-      --accent-glow: rgba(232, 150, 58, 0.06);
-      --current-code: #E07A5A;
-      --reform: #5BBF82;
-      --reform-dim: rgba(91, 191, 130, 0.08);
-      --red: #D64545;
-      --orange: #D4903A;
-      --yellow: #D9B84A;
-      --green: #5BBF82;
-      --teal: #3DA89A;
-      --border: rgba(255, 255, 255, 0.06);
-      --border-light: rgba(255, 255, 255, 0.10);
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-      --shadow-md: 0 4px 16px rgba(0,0,0,0.25);
-      --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Single Stair Visualizer - Chicago Single Stair Reform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ===== DESIGN TOKENS ===== */
+      :root {
+        --bg-deep: #0a0d11;
+        --bg: #10131a;
+        --bg-surface: #171b24;
+        --bg-elevated: #1e2330;
+        --bg-hover: #262d3d;
+        --text: #eae6de;
+        --text-secondary: #a8a49c;
+        --text-muted: #6b6860;
+        --accent: #e8963a;
+        --accent-dim: rgba(232, 150, 58, 0.1);
+        --accent-glow: rgba(232, 150, 58, 0.06);
+        --current-code: #e07a5a;
+        --reform: #5bbf82;
+        --reform-dim: rgba(91, 191, 130, 0.08);
+        --red: #d64545;
+        --orange: #d4903a;
+        --yellow: #d9b84a;
+        --green: #5bbf82;
+        --teal: #3da89a;
+        --border: rgba(255, 255, 255, 0.06);
+        --border-light: rgba(255, 255, 255, 0.1);
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
+        --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+      }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    body {
-      font-family: 'Instrument Sans', 'Outfit', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
+      body {
+        font-family: "Instrument Sans", "Outfit", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
 
-    /* ===== HERO ===== */
-    .hero {
-      position: relative;
-      text-align: center;
-      padding: 3.5rem 1.5rem 2.5rem;
-      overflow: hidden;
-      border-bottom: 1px solid var(--border);
-    }
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(ellipse at 30% 20%, rgba(232, 150, 58, 0.07) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 80%, rgba(91, 191, 130, 0.04) 0%, transparent 50%);
-      pointer-events: none;
-    }
-    .hero::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.015) 59px, rgba(255,255,255,0.015) 60px),
-        repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.015) 59px, rgba(255,255,255,0.015) 60px);
-      pointer-events: none;
-      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-      -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
-    }
-    .hero-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    .hero-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--accent);
-      font-weight: 600;
-      margin-bottom: 1.25rem;
-      padding: 0.35rem 1rem;
-      background: var(--accent-dim);
-      border: 1px solid rgba(232, 150, 58, 0.18);
-      border-radius: 100px;
-      animation: fadeDown 0.6s ease-out both;
-    }
-    .hero h1 {
-      font-family: 'DM Serif Display', serif;
-      font-size: clamp(2rem, 5vw, 3.2rem);
-      font-weight: 400;
-      color: #fff;
-      letter-spacing: -0.025em;
-      line-height: 1.08;
-      margin-bottom: 1rem;
-      animation: fadeDown 0.6s 0.1s ease-out both;
-    }
-    .hero h1 .accent { color: var(--accent); }
-    .hero-subtitle {
-      color: var(--text-secondary);
-      font-size: 1.05rem;
-      font-weight: 400;
-      line-height: 1.6;
-      max-width: 620px;
-      margin: 0 auto 1.5rem;
-      animation: fadeDown 0.6s 0.2s ease-out both;
-    }
-    .hero-cities {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      letter-spacing: 0.02em;
-      animation: fadeDown 0.6s 0.3s ease-out both;
-    }
-    .hero-cities::before {
-      content: '';
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--reform);
-      box-shadow: 0 0 8px rgba(91, 191, 130, 0.5);
-    }
+      /* ===== HERO ===== */
+      .hero {
+        position: relative;
+        text-align: center;
+        padding: 3.5rem 1.5rem 2.5rem;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border);
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse at 30% 20%,
+            rgba(232, 150, 58, 0.07) 0%,
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse at 70% 80%,
+            rgba(91, 191, 130, 0.04) 0%,
+            transparent 50%
+          );
+        pointer-events: none;
+      }
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 59px,
+            rgba(255, 255, 255, 0.015) 59px,
+            rgba(255, 255, 255, 0.015) 60px
+          ),
+          repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 59px,
+            rgba(255, 255, 255, 0.015) 59px,
+            rgba(255, 255, 255, 0.015) 60px
+          );
+        pointer-events: none;
+        mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 80%
+        );
+        -webkit-mask-image: radial-gradient(
+          ellipse at center,
+          black 30%,
+          transparent 80%
+        );
+      }
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .hero-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        padding: 0.35rem 1rem;
+        background: var(--accent-dim);
+        border: 1px solid rgba(232, 150, 58, 0.18);
+        border-radius: 100px;
+        animation: fadeDown 0.6s ease-out both;
+      }
+      .hero h1 {
+        font-family: "DM Serif Display", serif;
+        font-size: clamp(2rem, 5vw, 3.2rem);
+        font-weight: 400;
+        color: #fff;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+        margin-bottom: 1rem;
+        animation: fadeDown 0.6s 0.1s ease-out both;
+      }
+      .hero h1 .accent {
+        color: var(--accent);
+      }
+      .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.05rem;
+        font-weight: 400;
+        line-height: 1.6;
+        max-width: 620px;
+        margin: 0 auto 1.5rem;
+        animation: fadeDown 0.6s 0.2s ease-out both;
+      }
+      .hero-cities {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        animation: fadeDown 0.6s 0.3s ease-out both;
+      }
+      .hero-cities::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--reform);
+        box-shadow: 0 0 8px rgba(91, 191, 130, 0.5);
+      }
 
-    @keyframes fadeDown {
-      from { opacity: 0; transform: translateY(-12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+      @keyframes fadeDown {
+        from {
+          opacity: 0;
+          transform: translateY(-12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-    /* ===== STAT CARDS ===== */
-    .stat-cards {
-      display: flex;
-      justify-content: center;
-      gap: 1px;
-      background: var(--border-light);
-      border-bottom: 1px solid var(--border);
-      animation: fadeIn 0.6s 0.35s ease-out both;
-    }
-    .stat-card {
-      flex: 1;
-      max-width: 300px;
-      background: var(--bg-deep);
-      padding: 1.35rem 1.5rem;
-      text-align: center;
-      transition: background 0.3s;
-    }
-    .stat-card:hover {
-      background: var(--bg-surface);
-    }
-    .stat-card .stat-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.65rem;
-      font-weight: 700;
-      color: var(--accent);
-      line-height: 1.1;
-      margin-bottom: 0.3rem;
-    }
-    .stat-card .stat-value .arrow {
-      color: var(--text-muted);
-      font-weight: 400;
-      font-size: 1.1rem;
-      margin: 0 0.15rem;
-    }
-    .stat-card .stat-label {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
+      /* ===== STAT CARDS ===== */
+      .stat-cards {
+        display: flex;
+        justify-content: center;
+        gap: 1px;
+        background: var(--border-light);
+        border-bottom: 1px solid var(--border);
+        animation: fadeIn 0.6s 0.35s ease-out both;
+      }
+      .stat-card {
+        flex: 1;
+        max-width: 300px;
+        background: var(--bg-deep);
+        padding: 1.35rem 1.5rem;
+        text-align: center;
+        transition: background 0.3s;
+      }
+      .stat-card:hover {
+        background: var(--bg-surface);
+      }
+      .stat-card .stat-value {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 1.65rem;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1.1;
+        margin-bottom: 0.3rem;
+      }
+      .stat-card .stat-value .arrow {
+        color: var(--text-muted);
+        font-weight: 400;
+        font-size: 1.1rem;
+        margin: 0 0.15rem;
+      }
+      .stat-card .stat-label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
 
-    /* ===== CONTROLS ===== */
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      padding: 1.1rem 1.5rem;
-      flex-wrap: wrap;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-deep);
-    }
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-    }
-    .control-group label {
-      font-size: 0.6rem;
-      text-transform: uppercase;
-      letter-spacing: 0.13em;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .control-group select,
-    .control-group .btn-group {
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg-surface);
-      color: var(--text);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.5rem 0.75rem;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .control-group select option {
-      background: var(--bg-surface);
-      color: var(--text);
-    }
-    .control-group select:hover { border-color: var(--accent); }
-    .control-group select:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-
-    .btn-group {
-      display: flex;
-      overflow: hidden;
-      padding: 0 !important;
-      gap: 0;
-    }
-    .btn-group button {
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg-surface);
-      color: var(--text-muted);
-      border: none;
-      border-right: 1px solid var(--border);
-      padding: 0.5rem 1rem;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-group button:last-child { border-right: none; }
-    .btn-group button.active {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 700;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
-    }
-    .btn-group button:hover:not(.active) {
-      background: var(--bg-hover);
-      color: var(--text);
-    }
-
-    /* ===== TAB BAR ===== */
-    .tab-bar {
-      display: flex;
-      justify-content: center;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-deep);
-    }
-    .tab-bar button {
-      font-family: 'Instrument Sans', sans-serif;
-      background: transparent;
-      color: var(--text-muted);
-      border: none;
-      border-bottom: 2px solid transparent;
-      padding: 0.85rem 2rem;
-      font-size: 0.9rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.2s, border-color 0.2s;
-      letter-spacing: 0.01em;
-    }
-    .tab-bar button:hover { color: var(--text-secondary); }
-    .tab-bar button.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      font-weight: 600;
-    }
-
-    /* ===== LEGEND ===== */
-    .legend-bar {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 1.5rem;
-      padding: 0.75rem 1rem;
-      background: rgba(255,255,255,0.015);
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      letter-spacing: 0.03em;
-    }
-    .legend-swatch {
-      width: 14px;
-      height: 10px;
-      border-radius: 2px;
-      flex-shrink: 0;
-    }
-
-    /* ===== FLOOR SELECTOR ===== */
-    .floor-selector {
-      display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      padding: 1rem;
-    }
-    .floor-selector button {
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--bg-surface);
-      color: var(--text-muted);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.4rem 0.9rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .floor-selector button:hover:not(.active) {
-      border-color: var(--accent);
-      color: var(--text-secondary);
-      background: var(--bg-elevated);
-    }
-    .floor-selector button.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-      box-shadow: 0 0 16px var(--accent-dim);
-    }
-
-    /* ===== NARRATIVE HEADLINE ===== */
-    .narrative-headline {
-      text-align: center;
-      padding: 1.25rem 1.5rem 0.25rem;
-      font-size: 1.05rem;
-      font-weight: 400;
-      color: var(--text);
-      line-height: 1.6;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    .narrative-headline strong {
-      color: var(--reform);
-      font-weight: 700;
-    }
-
-    /* ===== CONTEXT PANEL ===== */
-    .context-panel {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 0.85rem 1.25rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--accent);
-      border-radius: var(--radius-sm);
-      font-size: 0.82rem;
-      color: var(--text-secondary);
-      line-height: 1.6;
-    }
-    .context-panel ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-    }
-    .context-panel li::before {
-      content: '\2022';
-      color: var(--accent);
-      font-weight: 700;
-      margin-right: 0.5rem;
-    }
-    .context-panel strong { color: var(--text); font-weight: 600; }
-
-    /* ===== FLOOR NOTE ===== */
-    .floor-note {
-      text-align: center;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      padding: 0 1rem 0.5rem;
-      font-style: italic;
-      font-weight: 400;
-    }
-
-    /* ===== MAIN CONTENT ===== */
-    .main-content {
-      padding: 1.5rem;
-      max-width: 1300px;
-      margin: 0 auto;
-    }
-
-    /* ===== COMPARATOR ===== */
-    .comparator-container {
-      display: flex;
-      gap: 0;
-      align-items: stretch;
-      justify-content: center;
-    }
-
-    .plan-panel {
-      flex: 1;
-      max-width: 480px;
-      background: var(--bg-surface);
-      border-radius: var(--radius-md);
-      padding: 1.25rem;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-md);
-      transition: box-shadow 0.3s, border-color 0.3s;
-    }
-    .plan-panel:hover {
-      box-shadow: var(--shadow-lg);
-      border-color: var(--border-light);
-    }
-    .plan-panel h3 {
-      text-align: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-    .plan-panel h3.current-label { color: var(--current-code); }
-    .plan-panel h3.reform-label { color: var(--reform); }
-    .plan-panel svg {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: var(--radius-sm);
-      background:
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-      background-size: 10px 10px;
-      background-color: rgba(255,255,255,0.015);
-    }
-
-    /* ===== DELTA PANEL ===== */
-    .delta-panel {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 0.65rem;
-      padding: 0.75rem 1rem;
-      min-width: 160px;
-      text-align: center;
-      position: relative;
-      background: linear-gradient(180deg, transparent 0%, rgba(91, 191, 130, 0.02) 50%, transparent 100%);
-    }
-    .delta-panel::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 50%;
-      width: 1px;
-      background: linear-gradient(180deg, transparent, var(--border-light) 15%, var(--border-light) 85%, transparent);
-      z-index: 0;
-    }
-    .delta-item {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.85rem 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
-      transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s;
-      position: relative;
-      z-index: 1;
-    }
-    .delta-item:hover {
-      transform: scale(1.04);
-      border-color: rgba(91, 191, 130, 0.35);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.35), 0 0 20px rgba(91, 191, 130, 0.06);
-    }
-    .delta-item .value {
-      font-size: 1.55rem;
-      font-weight: 700;
-      color: var(--reform);
-      display: block;
-      line-height: 1.15;
-    }
-    .delta-item .label {
-      font-size: 0.58rem;
-      color: var(--text-muted);
-      display: block;
-      margin-top: 0.25rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    /* ===== STATS SECTION ===== */
-    .stats-section {
-      margin-top: 2rem;
-      background: var(--bg-surface);
-      border-radius: var(--radius-md);
-      padding: 1.5rem;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-    }
-    .stats-section h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: var(--text);
-      letter-spacing: -0.01em;
-    }
-    .stats-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-size: 0.85rem;
-    }
-    .stats-table th, .stats-table td {
-      padding: 0.65rem 0.85rem;
-      text-align: right;
-      border-bottom: 1px solid var(--border);
-    }
-    .stats-table th:first-child, .stats-table td:first-child { text-align: left; }
-    .stats-table th {
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.63rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      padding-bottom: 0.85rem;
-    }
-    .stats-table tbody tr {
-      transition: background 0.15s;
-    }
-    .stats-table tbody tr:hover {
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .stats-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-    .stats-table .diff-positive { color: var(--reform); font-weight: 600; }
-    .stats-table .diff-negative { color: var(--red); font-weight: 600; }
-    .stats-table .diff-zero { color: var(--text-muted); }
-
-    /* ===== TOOLTIP ===== */
-    .tooltip {
-      position: fixed;
-      background: var(--bg-elevated);
-      border: 1px solid var(--accent);
-      border-radius: var(--radius-sm);
-      padding: 0.5rem 0.85rem;
-      font-size: 0.75rem;
-      pointer-events: none;
-      z-index: 100;
-      display: none;
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      box-shadow: var(--shadow-lg);
-      backdrop-filter: blur(8px);
-    }
-
-    #three-container {
-      width: 100%;
-      height: 600px;
-      background: var(--bg-surface);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border);
-      display: none;
-      box-shadow: var(--shadow-md);
-      position: relative;
-      overflow: hidden;
-    }
-    #three-container canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    /* ===== 3D VIEW CONTROLS ===== */
-    .three-actions {
-      display: flex;
-      justify-content: center;
-      gap: 0.75rem;
-      padding: 1rem 0 0;
-    }
-    .action-btn {
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg-surface);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.55rem 1.25rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      letter-spacing: 0.02em;
-    }
-    .action-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text);
-      border-color: var(--accent);
-    }
-    .action-btn.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-
-    /* ===== TOUR CONTROLS ===== */
-    .tour-controls {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      margin-top: 0.75rem;
-    }
-    .tour-btn {
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg-elevated);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-sm);
-      padding: 0.4rem 1rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .tour-btn:hover:not(:disabled) {
-      background: var(--bg-hover);
-      color: var(--text);
-      border-color: var(--accent);
-    }
-    .tour-btn:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-    .tour-step-indicator {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      min-width: 60px;
-      text-align: center;
-    }
-
-    /* ===== TOUR ANNOTATION ===== */
-    .tour-annotation {
-      position: absolute;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(16, 19, 26, 0.92);
-      border: 1px solid var(--border-light);
-      border-radius: var(--radius-md);
-      padding: 1rem 1.5rem;
-      max-width: 420px;
-      width: 90%;
-      z-index: 10;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-    .tour-annotation h4 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--accent);
-      margin-bottom: 0.35rem;
-    }
-    .tour-annotation p {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin: 0;
-    }
-
-    /* ===== FOOTER ===== */
-    footer {
-      text-align: center;
-      padding: 3rem 1.5rem 2.5rem;
-      border-top: 1px solid var(--border);
-      margin-top: 3rem;
-      position: relative;
-      overflow: hidden;
-    }
-    footer::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 50% 0%, rgba(232, 150, 58, 0.04) 0%, transparent 60%);
-      pointer-events: none;
-    }
-    .footer-inner {
-      position: relative;
-      z-index: 1;
-    }
-    .footer-cta {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.6rem;
-      color: #fff;
-      margin-bottom: 0.75rem;
-      letter-spacing: -0.01em;
-    }
-    .footer-orgs {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.4rem;
-      font-weight: 400;
-    }
-    .footer-orgs a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 600;
-      transition: color 0.2s;
-    }
-    .footer-orgs a:hover {
-      color: #fff;
-      text-decoration: underline;
-    }
-    .footer-ward {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-    }
-    .footer-safety {
-      display: inline-block;
-      font-size: 0.68rem;
-      color: var(--text-muted);
-      background: rgba(91, 191, 130, 0.06);
-      border: 1px solid rgba(91, 191, 130, 0.12);
-      border-radius: 100px;
-      padding: 0.4rem 1rem;
-      font-weight: 500;
-      line-height: 1.4;
-      margin-bottom: 1rem;
-    }
-    .footer-safety strong { color: var(--reform); font-weight: 700; }
-
-    /* Key Facts Grid */
-    .key-facts {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.75rem;
-      max-width: 700px;
-      margin: 0 auto 1.25rem;
-    }
-    .key-fact {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 0.85rem 0.65rem;
-      text-align: center;
-    }
-    .key-fact .kf-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--accent);
-      line-height: 1.2;
-      margin-bottom: 0.2rem;
-    }
-    .key-fact .kf-label {
-      font-size: 0.6rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      font-weight: 500;
-      line-height: 1.3;
-    }
-    .footer-peers {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-bottom: 1rem;
-      font-weight: 400;
-    }
-    .footer-peers strong { color: var(--text-secondary); font-weight: 600; }
-    .footer-irony {
-      display: inline-block;
-      font-size: 0.72rem;
-      color: var(--text-secondary);
-      background: rgba(232, 150, 58, 0.06);
-      border: 1px solid rgba(232, 150, 58, 0.15);
-      border-radius: var(--radius-sm);
-      padding: 0.6rem 1.2rem;
-      font-weight: 500;
-      line-height: 1.5;
-      margin-bottom: 1.25rem;
-    }
-    .footer-irony strong { color: var(--accent); font-weight: 700; }
-    .footer-fine {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      font-weight: 400;
-      letter-spacing: 0.01em;
-    }
-
-    /* ===== RESPONSIVE ===== */
-    @media (max-width: 768px) {
-      .hero { padding: 2.5rem 1rem 2rem; }
-      .hero h1 { font-size: 1.8rem; }
-      .hero-subtitle { font-size: 0.92rem; }
-      .stat-cards { flex-direction: column; gap: 1px; }
-      .stat-card { max-width: 100%; }
-      .comparator-container {
+      /* ===== CONTROLS ===== */
+      .controls {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        padding: 1.1rem 1.5rem;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-deep);
+      }
+      .control-group {
+        display: flex;
         flex-direction: column;
+        gap: 0.4rem;
+      }
+      .control-group label {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+      .control-group select,
+      .control-group .btn-group {
+        font-family: "Instrument Sans", sans-serif;
+        background: var(--bg-surface);
+        color: var(--text);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .control-group select option {
+        background: var(--bg-surface);
+        color: var(--text);
+      }
+      .control-group select:hover {
+        border-color: var(--accent);
+      }
+      .control-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+
+      .btn-group {
+        display: flex;
+        overflow: hidden;
+        padding: 0 !important;
+        gap: 0;
+      }
+      .btn-group button {
+        font-family: "Instrument Sans", sans-serif;
+        background: var(--bg-surface);
+        color: var(--text-muted);
+        border: none;
+        border-right: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-group button:last-child {
+        border-right: none;
+      }
+      .btn-group button.active {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      }
+      .btn-group button:hover:not(.active) {
+        background: var(--bg-hover);
+        color: var(--text);
+      }
+
+      /* ===== TAB BAR ===== */
+      .tab-bar {
+        display: flex;
+        justify-content: center;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-deep);
+      }
+      .tab-bar button {
+        font-family: "Instrument Sans", sans-serif;
+        background: transparent;
+        color: var(--text-muted);
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.85rem 2rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+        letter-spacing: 0.01em;
+      }
+      .tab-bar button:hover {
+        color: var(--text-secondary);
+      }
+      .tab-bar button.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* ===== LEGEND ===== */
+      .legend-bar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 0.75rem 1rem;
+        background: rgba(255, 255, 255, 0.015);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        font-weight: 500;
+        letter-spacing: 0.03em;
+      }
+      .legend-swatch {
+        width: 14px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+
+      /* ===== FLOOR SELECTOR ===== */
+      .floor-selector {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem;
+      }
+      .floor-selector button {
+        font-family: "JetBrains Mono", monospace;
+        background: var(--bg-surface);
+        color: var(--text-muted);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.4rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .floor-selector button:hover:not(.active) {
+        border-color: var(--accent);
+        color: var(--text-secondary);
+        background: var(--bg-elevated);
+      }
+      .floor-selector button.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        box-shadow: 0 0 16px var(--accent-dim);
+      }
+
+      /* ===== NARRATIVE HEADLINE ===== */
+      .narrative-headline {
+        text-align: center;
+        padding: 1.25rem 1.5rem 0.25rem;
+        font-size: 1.05rem;
+        font-weight: 400;
+        color: var(--text);
+        line-height: 1.6;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .narrative-headline strong {
+        color: var(--reform);
+        font-weight: 700;
+      }
+
+      /* ===== CONTEXT PANEL ===== */
+      .context-panel {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 0.85rem 1.25rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+      .context-panel ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .context-panel li::before {
+        content: "\2022";
+        color: var(--accent);
+        font-weight: 700;
+        margin-right: 0.5rem;
+      }
+      .context-panel strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      /* ===== FLOOR NOTE ===== */
+      .floor-note {
+        text-align: center;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        padding: 0 1rem 0.5rem;
+        font-style: italic;
+        font-weight: 400;
+      }
+
+      /* ===== MAIN CONTENT ===== */
+      .main-content {
+        padding: 1.5rem;
+        max-width: 1300px;
+        margin: 0 auto;
+      }
+
+      /* ===== COMPARATOR ===== */
+      .comparator-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
         align-items: stretch;
       }
-      .plan-panel { max-width: 100%; }
+
+      .plan-panel {
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        padding: 1.25rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-md);
+        transition:
+          box-shadow 0.3s,
+          border-color 0.3s;
+      }
+      .plan-panel:hover {
+        box-shadow: var(--shadow-lg);
+        border-color: var(--border-light);
+      }
+      .plan-panel h3 {
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .plan-panel h3.current-label {
+        color: var(--current-code);
+      }
+      .plan-panel h3.reform-label {
+        color: var(--reform);
+      }
+      .plan-panel svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: var(--radius-sm);
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+          linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.018) 1px,
+            transparent 1px
+          );
+        background-size: 10px 10px;
+        background-color: rgba(255, 255, 255, 0.015);
+      }
+
+      /* ===== DELTA PANEL ===== */
       .delta-panel {
+        display: flex;
         flex-direction: row;
-        flex-wrap: wrap;
         justify-content: center;
-        padding: 0.5rem;
-        min-width: auto;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        position: relative;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(91, 191, 130, 0.02) 50%,
+          transparent 100%
+        );
       }
-      .delta-panel::before { display: none; }
-      .delta-item .value { font-size: 1.2rem; }
-      .controls { gap: 1rem; }
-      .main-content { padding: 1rem; }
-      .legend-bar { gap: 0.75rem; padding: 0.65rem 0.5rem; }
-      .footer-cta { font-size: 1.3rem; }
-      .key-facts { grid-template-columns: repeat(2, 1fr); }
-      .context-panel { margin: 0 1rem; }
-      #three-container { height: 400px; }
-      .tour-annotation { max-width: 300px; padding: 0.75rem 1rem; }
-      .tour-annotation h4 { font-size: 0.85rem; }
-      .tour-annotation p { font-size: 0.72rem; }
-    }
-
-    /* ===== PRINT ===== */
-    @media print {
-      body { background: #fff; color: #000; }
-      .hero, .stat-cards, .controls, .tab-bar, .legend-bar, .floor-selector, footer, #three-tab { display: none; }
-      .plan-panel { border: 1px solid #ccc; background: #fff; box-shadow: none; }
-      .stats-section { background: #fff; border: 1px solid #ccc; box-shadow: none; }
-      .delta-item .value { color: #16a34a; }
-      .stats-table .diff-positive { color: #16a34a; }
-      .stats-table .diff-negative { color: #dc2626; }
-    }
-  </style>
-</head>
-<body>
-
-  <!-- HERO -->
-  <div class="hero">
-    <div class="hero-inner">
-      <div class="hero-kicker">Chicago Building Code Reform</div>
-      <h1>What If Chicago Allowed<br><span class="accent">Single Stair Buildings?</span></h1>
-      <p class="hero-subtitle">Above the second story, Chicago's building code requires each unit to have access to two stairways. On a standard 25-foot lot, that means three stairways per building, resulting in smaller, darker apartments with fewer bedrooms. Seattle, New York, Austin, and Honolulu already allow single stair with sprinklers.</p>
-      <div class="hero-cities">Peer cities have already adopted single stair reform</div>
-    </div>
-  </div>
-
-  <!-- STAT CARDS -->
-  <div class="stat-cards">
-    <div class="stat-card">
-      <div class="stat-value" id="hero-stat1-value">3 <span class="arrow">&rarr;</span> 1</div>
-      <div class="stat-label" id="hero-stat1-label">Staircases per Building</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value" id="hero-stat2-value">+38%</div>
-      <div class="stat-label" id="hero-stat2-label">Livable Space per Floor</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value" id="hero-stat3-value">2 <span class="arrow">&rarr;</span> 3 BR</div>
-      <div class="stat-label" id="hero-stat3-label">Bedrooms per Unit</div>
-    </div>
-  </div>
-
-  <!-- CONTROLS -->
-  <div class="controls">
-    <div class="control-group">
-      <label>Lot Type</label>
-      <select id="lot-select">
-        <option value="single">Single (25&times;125)</option>
-        <option value="double">Double (50&times;125)</option>
-      </select>
-    </div>
-    <div class="control-group">
-      <label>Stories</label>
-      <div class="btn-group" id="stories-group">
-        <button data-value="2">2</button>
-        <button data-value="3" class="active">3</button>
-        <button data-value="4">4</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB BAR -->
-  <div class="tab-bar">
-    <button class="active" data-tab="floorplan">Floor Plan</button>
-    <button data-tab="3d">3D View</button>
-  </div>
-
-  <!-- LEGEND -->
-  <div class="legend-bar">
-    <div class="legend-item"><span class="legend-swatch" style="background:#D64545;"></span> Staircase</div>
-    <div class="legend-item"><span class="legend-swatch" style="background:#D4903A;"></span> Hallway</div>
-    <div class="legend-item"><span class="legend-swatch" style="background:#EDE8DF;"></span> Livable Space</div>
-  </div>
-
-  <!-- FLOOR PLAN TAB -->
-  <div id="floorplan-tab">
-    <div class="narrative-headline" id="narrative-headline"></div>
-    <div class="context-panel" id="context-panel" style="display:none"></div>
-    <div class="floor-selector" id="floor-selector"></div>
-    <div class="floor-note" id="floor-note"></div>
-
-    <div class="main-content">
-      <div class="comparator-container">
-        <div class="plan-panel" id="current-panel">
-          <h3 class="current-label">Current Code</h3>
-          <div id="current-svg"></div>
-        </div>
-        <div class="delta-panel" id="delta-panel"></div>
-        <div class="plan-panel" id="reform-panel">
-          <h3 class="reform-label">Single Stair Reform</h3>
-          <div id="reform-svg"></div>
-        </div>
-      </div>
-
-      <div class="stats-section">
-        <h3 id="per-floor-heading">Per-Floor Comparison (Floor <span id="stats-floor-num">1</span>)</h3>
-        <table class="stats-table" id="per-floor-table">
-          <thead>
-            <tr><th></th><th>Current Code</th><th>Reform</th><th>Difference</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div class="stats-section">
-        <h3 id="whole-building-heading">Whole-Building Summary</h3>
-        <table class="stats-table" id="whole-building-table">
-          <thead>
-            <tr><th></th><th>Current Code</th><th>Reform</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- 3D TAB -->
-  <div id="three-tab" style="display:none">
-    <div class="main-content">
-      <div id="three-container">
-        <div class="tour-annotation" id="tour-annotation" style="display:none">
-          <h4 id="tour-title"></h4>
-          <p id="tour-description"></p>
-        </div>
-      </div>
-      <div class="three-actions">
-        <button id="tour-start-btn" class="action-btn">Guided Tour</button>
-      </div>
-      <div class="tour-controls" id="tour-controls" style="display:none">
-        <button id="tour-prev" class="tour-btn">&larr; Previous</button>
-        <div class="tour-step-indicator" id="tour-indicator">1 / 5</div>
-        <button id="tour-next" class="tour-btn">Next &rarr;</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="tooltip" id="tooltip"></div>
-
-  <!-- FOOTER -->
-  <footer>
-    <div class="footer-inner">
-      <div class="key-facts">
-        <div class="key-fact">
-          <div class="kf-value">46% &rarr; 2%</div>
-          <div class="kf-label">Fire Spread with Sprinklers</div>
-        </div>
-        <div class="key-fact">
-          <div class="kf-value">3 Stairways</div>
-          <div class="kf-label">Required for 5-8 Units</div>
-        </div>
-        <div class="key-fact">
-          <div class="kf-value">2 Stairways</div>
-          <div class="kf-label">Required for 100+ Units</div>
-        </div>
-        <div class="key-fact">
-          <div class="kf-value">25 ft</div>
-          <div class="kf-label">Typical Chicago Lot Width</div>
-        </div>
-      </div>
-      <div class="footer-irony">An apartment building with <strong>5-8 units needs three stairways</strong> under current code, while a <strong>100+ unit tower on a larger lot only needs two</strong>. These tradeoffs discourage builders from using a standard lot's full zoned capacity.</div>
-      <div class="footer-peers"><strong>Already adopted:</strong> Seattle (4 units/floor) &middot; New York &middot; Austin (5-story cap) &middot; Honolulu</div>
-      <div class="footer-cta">Help bring single stair reform to Chicago</div>
-      <div class="footer-orgs">
-        <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a> &amp;
-      </div>
-      <div class="footer-safety">Buildings with sprinklers and smoke alarms reduce the chance of fire spreading beyond the room of origin from about <strong>46% to 2%</strong> (2024 single stair policy study)</div>
-      <div class="footer-fine">Illustrative visualization for advocacy purposes, not architectural drawings.</div>
-    </div>
-  </footer>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="layout.js"></script>
-  <script src="renderer.js"></script>
-  <script src="stats.js"></script>
-  <script src="state.js"></script>
-  <script src="mesh.js"></script>
-  <script src="viewer3d.js"></script>
-  <script src="tour.js"></script>
-  <script>
-    // --- App State ---
-    let currentFloorIndex = 2; // Default to floor 3 (0-indexed) where reform impact is visible
-    let currentConfig = decodeHashToConfig(window.location.hash);
-
-    // --- DOM refs ---
-    const lotSelect = document.getElementById('lot-select');
-    const storiesGroup = document.getElementById('stories-group');
-    const floorSelector = document.getElementById('floor-selector');
-    const floorNote = document.getElementById('floor-note');
-    const narrativeHeadline = document.getElementById('narrative-headline');
-    const currentSvgEl = document.getElementById('current-svg');
-    const reformSvgEl = document.getElementById('reform-svg');
-    const deltaPanel = document.getElementById('delta-panel');
-    const perFloorBody = document.querySelector('#per-floor-table tbody');
-    const wholeBuildingBody = document.querySelector('#whole-building-table tbody');
-    const tooltip = document.getElementById('tooltip');
-    const contextPanel = document.getElementById('context-panel');
-
-    // --- Initialize controls from config ---
-    function syncControlsToConfig() {
-      lotSelect.value = currentConfig.lot;
-      storiesGroup.querySelectorAll('button').forEach(b => {
-        b.classList.toggle('active', b.dataset.value === String(currentConfig.stories));
-      });
-    }
-
-    // --- Render everything ---
-    function render() {
-      const config = { lot: currentConfig.lot, stories: currentConfig.stories };
-
-      const current = generateLayout({ ...config, stair: 'current' });
-      const reform = generateLayout({ ...config, stair: 'reform' });
-
-      // Clamp floor index
-      if (currentFloorIndex >= currentConfig.stories) {
-        currentFloorIndex = currentConfig.stories - 1;
+      .delta-panel::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 50%;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--border-light) 15%,
+          var(--border-light) 85%,
+          transparent
+        );
+        z-index: 0;
+      }
+      .delta-item {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.85rem 0.75rem;
+        font-family: "JetBrains Mono", monospace;
+        transition:
+          transform 0.2s,
+          border-color 0.3s,
+          box-shadow 0.3s;
+        position: relative;
+        z-index: 1;
+      }
+      .delta-item:hover {
+        transform: scale(1.04);
+        border-color: rgba(91, 191, 130, 0.35);
+        box-shadow:
+          0 4px 20px rgba(0, 0, 0, 0.35),
+          0 0 20px rgba(91, 191, 130, 0.06);
+      }
+      .delta-item .value {
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: var(--reform);
+        display: block;
+        line-height: 1.15;
+      }
+      .delta-item .label {
+        font-size: 0.58rem;
+        color: var(--text-muted);
+        display: block;
+        margin-top: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
       }
 
-      // Floor selector
-      floorSelector.innerHTML = '';
-      for (let i = 0; i < currentConfig.stories; i++) {
-        const btn = document.createElement('button');
-        btn.textContent = `Floor ${i + 1}`;
-        btn.classList.toggle('active', i === currentFloorIndex);
-        btn.addEventListener('click', () => {
-          currentFloorIndex = i;
-          render();
+      /* ===== STATS SECTION ===== */
+      .stats-section {
+        margin-top: 2rem;
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-sm);
+      }
+      .stats-section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--text);
+        letter-spacing: -0.01em;
+      }
+      .stats-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.85rem;
+      }
+      .stats-table th,
+      .stats-table td {
+        padding: 0.65rem 0.85rem;
+        text-align: right;
+        border-bottom: 1px solid var(--border);
+      }
+      .stats-table th:first-child,
+      .stats-table td:first-child {
+        text-align: left;
+      }
+      .stats-table th {
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.63rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding-bottom: 0.85rem;
+      }
+      .stats-table tbody tr {
+        transition: background 0.15s;
+      }
+      .stats-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .stats-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .stats-table .diff-positive {
+        color: var(--reform);
+        font-weight: 600;
+      }
+      .stats-table .diff-negative {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .stats-table .diff-zero {
+        color: var(--text-muted);
+      }
+
+      /* ===== TOOLTIP ===== */
+      .tooltip {
+        position: fixed;
+        background: var(--bg-elevated);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        padding: 0.5rem 0.85rem;
+        font-size: 0.75rem;
+        pointer-events: none;
+        z-index: 100;
+        display: none;
+        color: var(--text);
+        font-family: "JetBrains Mono", monospace;
+        box-shadow: var(--shadow-lg);
+        backdrop-filter: blur(8px);
+      }
+
+      #three-container {
+        width: 100%;
+        height: 600px;
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        display: none;
+        box-shadow: var(--shadow-md);
+        position: relative;
+        overflow: hidden;
+      }
+      #three-container canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ===== 3D VIEW CONTROLS ===== */
+      .three-actions {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 1rem 0 0;
+      }
+      .action-btn {
+        font-family: "Instrument Sans", sans-serif;
+        background: var(--bg-surface);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.55rem 1.25rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.02em;
+      }
+      .action-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+        border-color: var(--accent);
+      }
+      .action-btn.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      /* ===== TOUR CONTROLS ===== */
+      .tour-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin-top: 0.75rem;
+      }
+      .tour-btn {
+        font-family: "Instrument Sans", sans-serif;
+        background: var(--bg-elevated);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-sm);
+        padding: 0.4rem 1rem;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tour-btn:hover:not(:disabled) {
+        background: var(--bg-hover);
+        color: var(--text);
+        border-color: var(--accent);
+      }
+      .tour-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .tour-step-indicator {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        min-width: 60px;
+        text-align: center;
+      }
+
+      /* ===== TOUR ANNOTATION ===== */
+      .tour-annotation {
+        position: absolute;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(16, 19, 26, 0.92);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.5rem;
+        max-width: 420px;
+        width: 90%;
+        z-index: 10;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      .tour-annotation h4 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--accent);
+        margin-bottom: 0.35rem;
+      }
+      .tour-annotation p {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      /* ===== FOOTER ===== */
+      footer {
+        text-align: center;
+        padding: 3rem 1.5rem 2.5rem;
+        border-top: 1px solid var(--border);
+        margin-top: 3rem;
+        position: relative;
+        overflow: hidden;
+      }
+      footer::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          ellipse at 50% 0%,
+          rgba(232, 150, 58, 0.04) 0%,
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+      .footer-inner {
+        position: relative;
+        z-index: 1;
+      }
+      .footer-cta {
+        font-family: "DM Serif Display", serif;
+        font-size: 1.6rem;
+        color: #fff;
+        margin-bottom: 0.75rem;
+        letter-spacing: -0.01em;
+      }
+      .footer-orgs {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
+        font-weight: 400;
+      }
+      .footer-orgs a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.2s;
+      }
+      .footer-orgs a:hover {
+        color: #fff;
+        text-decoration: underline;
+      }
+      .footer-ward {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+      }
+      .footer-safety {
+        display: inline-block;
+        font-size: 0.68rem;
+        color: var(--text-muted);
+        background: rgba(91, 191, 130, 0.06);
+        border: 1px solid rgba(91, 191, 130, 0.12);
+        border-radius: 100px;
+        padding: 0.4rem 1rem;
+        font-weight: 500;
+        line-height: 1.4;
+        margin-bottom: 1rem;
+      }
+      .footer-safety strong {
+        color: var(--reform);
+        font-weight: 700;
+      }
+
+      /* Key Facts Grid */
+      .key-facts {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        max-width: 700px;
+        margin: 0 auto 1.25rem;
+      }
+      .key-fact {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.85rem 0.65rem;
+        text-align: center;
+      }
+      .key-fact .kf-value {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1.2;
+        margin-bottom: 0.2rem;
+      }
+      .key-fact .kf-label {
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        font-weight: 500;
+        line-height: 1.3;
+      }
+      .footer-peers {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        font-weight: 400;
+      }
+      .footer-peers strong {
+        color: var(--text-secondary);
+        font-weight: 600;
+      }
+      .footer-irony {
+        display: inline-block;
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        background: rgba(232, 150, 58, 0.06);
+        border: 1px solid rgba(232, 150, 58, 0.15);
+        border-radius: var(--radius-sm);
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+        line-height: 1.5;
+        margin-bottom: 1.25rem;
+      }
+      .footer-irony strong {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .footer-fine {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        font-weight: 400;
+        letter-spacing: 0.01em;
+      }
+
+      /* ===== RESPONSIVE ===== */
+      @media (max-width: 768px) {
+        .hero {
+          padding: 2.5rem 1rem 2rem;
+        }
+        .hero h1 {
+          font-size: 1.8rem;
+        }
+        .hero-subtitle {
+          font-size: 0.92rem;
+        }
+        .stat-cards {
+          flex-direction: column;
+          gap: 1px;
+        }
+        .stat-card {
+          max-width: 100%;
+        }
+        .delta-panel::before {
+          display: none;
+        }
+        .delta-item .value {
+          font-size: 1.2rem;
+        }
+        .controls {
+          gap: 1rem;
+        }
+        .main-content {
+          padding: 1rem;
+        }
+        .legend-bar {
+          gap: 0.75rem;
+          padding: 0.65rem 0.5rem;
+        }
+        .footer-cta {
+          font-size: 1.3rem;
+        }
+        .key-facts {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .context-panel {
+          margin: 0 1rem;
+        }
+        #three-container {
+          height: 400px;
+        }
+        .tour-annotation {
+          max-width: 300px;
+          padding: 0.75rem 1rem;
+        }
+        .tour-annotation h4 {
+          font-size: 0.85rem;
+        }
+        .tour-annotation p {
+          font-size: 0.72rem;
+        }
+      }
+
+      /* ===== PRINT ===== */
+      @media print {
+        body {
+          background: #fff;
+          color: #000;
+        }
+        .hero,
+        .stat-cards,
+        .controls,
+        .tab-bar,
+        .legend-bar,
+        .floor-selector,
+        footer,
+        #three-tab {
+          display: none;
+        }
+        .plan-panel {
+          border: 1px solid #ccc;
+          background: #fff;
+          box-shadow: none;
+        }
+        .stats-section {
+          background: #fff;
+          border: 1px solid #ccc;
+          box-shadow: none;
+        }
+        .delta-item .value {
+          color: #16a34a;
+        }
+        .stats-table .diff-positive {
+          color: #16a34a;
+        }
+        .stats-table .diff-negative {
+          color: #dc2626;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HERO -->
+    <div class="hero">
+      <div class="hero-inner">
+        <div class="hero-kicker">Chicago Building Code Reform</div>
+        <h1>
+          What If Chicago Allowed<br /><span class="accent"
+            >Single Stair Buildings?</span
+          >
+        </h1>
+        <p class="hero-subtitle">
+          Above the second story, Chicago's building code requires each unit to
+          have access to two stairways. On a standard 25-foot lot, that means
+          three stairways per building, resulting in smaller, darker apartments
+          with fewer bedrooms. Seattle, New York, Austin, and Honolulu already
+          allow single stair with sprinklers.
+        </p>
+        <div class="hero-cities">
+          Peer cities have already adopted single stair reform
+        </div>
+      </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-value" id="hero-stat1-value">
+          3 <span class="arrow">&rarr;</span> 1
+        </div>
+        <div class="stat-label" id="hero-stat1-label">
+          Staircases per Building
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="hero-stat2-value">+38%</div>
+        <div class="stat-label" id="hero-stat2-label">
+          Livable Space per Floor
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="hero-stat3-value">
+          2 <span class="arrow">&rarr;</span> 3 BR
+        </div>
+        <div class="stat-label" id="hero-stat3-label">Bedrooms per Unit</div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="control-group">
+        <label>Lot Type</label>
+        <select id="lot-select">
+          <option value="single">Single (25&times;125)</option>
+          <option value="double">Double (50&times;125)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Stories</label>
+        <div class="btn-group" id="stories-group">
+          <button data-value="2">2</button>
+          <button data-value="3" class="active">3</button>
+          <button data-value="4">4</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tab-bar">
+      <button class="active" data-tab="floorplan">Floor Plan</button>
+      <button data-tab="3d">3D View</button>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="legend-bar">
+      <div class="legend-item">
+        <span class="legend-swatch" style="background: #d64545"></span>
+        Staircase
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch" style="background: #d4903a"></span> Hallway
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch" style="background: #ede8df"></span> Livable
+        Space
+      </div>
+    </div>
+
+    <!-- FLOOR PLAN TAB -->
+    <div id="floorplan-tab">
+      <div class="narrative-headline" id="narrative-headline"></div>
+      <div class="context-panel" id="context-panel" style="display: none"></div>
+      <div class="floor-selector" id="floor-selector"></div>
+      <div class="floor-note" id="floor-note"></div>
+
+      <div class="main-content">
+        <div class="comparator-container">
+          <div class="plan-panel" id="current-panel">
+            <h3 class="current-label">Current Code</h3>
+            <div id="current-svg"></div>
+          </div>
+          <div class="delta-panel" id="delta-panel"></div>
+          <div class="plan-panel" id="reform-panel">
+            <h3 class="reform-label">Single Stair Reform</h3>
+            <div id="reform-svg"></div>
+          </div>
+        </div>
+
+        <div class="stats-section">
+          <h3 id="per-floor-heading">
+            Per-Floor Comparison (Floor <span id="stats-floor-num">1</span>)
+          </h3>
+          <table class="stats-table" id="per-floor-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Current Code</th>
+                <th>Reform</th>
+                <th>Difference</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="stats-section">
+          <h3 id="whole-building-heading">Whole-Building Summary</h3>
+          <table class="stats-table" id="whole-building-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Current Code</th>
+                <th>Reform</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D TAB -->
+    <div id="three-tab" style="display: none">
+      <div class="main-content">
+        <div id="three-container">
+          <div
+            class="tour-annotation"
+            id="tour-annotation"
+            style="display: none"
+          >
+            <h4 id="tour-title"></h4>
+            <p id="tour-description"></p>
+          </div>
+        </div>
+        <div class="three-actions">
+          <button id="tour-start-btn" class="action-btn">Guided Tour</button>
+        </div>
+        <div class="tour-controls" id="tour-controls" style="display: none">
+          <button id="tour-prev" class="tour-btn">&larr; Previous</button>
+          <div class="tour-step-indicator" id="tour-indicator">1 / 5</div>
+          <button id="tour-next" class="tour-btn">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- FOOTER -->
+    <footer>
+      <div class="footer-inner">
+        <div class="key-facts">
+          <div class="key-fact">
+            <div class="kf-value">46% &rarr; 2%</div>
+            <div class="kf-label">Fire Spread with Sprinklers</div>
+          </div>
+          <div class="key-fact">
+            <div class="kf-value">3 Stairways</div>
+            <div class="kf-label">Required for 5-8 Units</div>
+          </div>
+          <div class="key-fact">
+            <div class="kf-value">2 Stairways</div>
+            <div class="kf-label">Required for 100+ Units</div>
+          </div>
+        </div>
+        <div class="footer-irony">
+          An apartment building with
+          <strong>5-8 units needs three stairways</strong> under current code,
+          while a
+          <strong>100+ unit tower on a larger lot only needs two</strong>. These
+          tradeoffs discourage builders from using a standard lot's full zoned
+          capacity.
+        </div>
+        <div class="footer-peers">
+          <strong>Already adopted:</strong> Seattle (4 units/floor) &middot; New
+          York &middot; Austin (5-story cap) &middot; Honolulu
+        </div>
+        <div class="footer-cta">Help bring single stair reform to Chicago</div>
+        <div class="footer-orgs">
+          <a href="https://www.strongtownschicago.org">Strong Towns Chicago</a>
+          &amp;
+        </div>
+        <div class="footer-safety">
+          Buildings with sprinklers and smoke alarms reduce the chance of fire
+          spreading beyond the room of origin from about
+          <strong>46% to 2%</strong> (2024 single stair policy study)
+        </div>
+        <div class="footer-fine">
+          Illustrative visualization for advocacy purposes, not architectural
+          drawings.
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="layout.js"></script>
+    <script src="renderer.js"></script>
+    <script src="stats.js"></script>
+    <script src="state.js"></script>
+    <script src="mesh.js"></script>
+    <script src="viewer3d.js"></script>
+    <script src="tour.js"></script>
+    <script>
+      // --- App State ---
+      let currentFloorIndex = 2; // Default to floor 3 (0-indexed) where reform impact is visible
+      let currentConfig = decodeHashToConfig(window.location.hash);
+
+      // --- DOM refs ---
+      const lotSelect = document.getElementById("lot-select");
+      const storiesGroup = document.getElementById("stories-group");
+      const floorSelector = document.getElementById("floor-selector");
+      const floorNote = document.getElementById("floor-note");
+      const narrativeHeadline = document.getElementById("narrative-headline");
+      const currentSvgEl = document.getElementById("current-svg");
+      const reformSvgEl = document.getElementById("reform-svg");
+      const deltaPanel = document.getElementById("delta-panel");
+      const perFloorBody = document.querySelector("#per-floor-table tbody");
+      const wholeBuildingBody = document.querySelector(
+        "#whole-building-table tbody",
+      );
+      const tooltip = document.getElementById("tooltip");
+      const contextPanel = document.getElementById("context-panel");
+
+      // --- Initialize controls from config ---
+      function syncControlsToConfig() {
+        lotSelect.value = currentConfig.lot;
+        storiesGroup.querySelectorAll("button").forEach((b) => {
+          b.classList.toggle(
+            "active",
+            b.dataset.value === String(currentConfig.stories),
+          );
         });
-        floorSelector.appendChild(btn);
       }
 
-      // Narrative headline
-      if (currentConfig.stories > 2) {
-        const currFloorTemp = current.floors[currentFloorIndex];
-        const refFloorTemp = reform.floors[currentFloorIndex];
-        const cLiv = currFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
-        const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
-        const dArea = Math.round(rLiv - cLiv);
-        const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-        narrativeHeadline.innerHTML = `Three stairways consume <strong>${dArea} sf (+${dPct}%)</strong> of this floor, limiting bedrooms.`;
-      } else if (currentConfig.stories <= 2) {
-        narrativeHeadline.innerHTML = 'Chicago currently allows second-story units to access a single stairway. <strong>Choose 3 or 4 stories</strong> to see what changes above the second floor.';
-      } else {
-        narrativeHeadline.innerHTML = '';
-      }
+      // --- Render everything ---
+      function render() {
+        const config = {
+          lot: currentConfig.lot,
+          stories: currentConfig.stories,
+        };
 
-      // Context panel
-      if (currentConfig.stories > 2) {
-        contextPanel.style.display = '';
-        contextPanel.innerHTML = `<ul>
+        const current = generateLayout({ ...config, stair: "current" });
+        const reform = generateLayout({ ...config, stair: "reform" });
+
+        // Clamp floor index
+        if (currentFloorIndex >= currentConfig.stories) {
+          currentFloorIndex = currentConfig.stories - 1;
+        }
+
+        // Floor selector
+        floorSelector.innerHTML = "";
+        for (let i = 0; i < currentConfig.stories; i++) {
+          const btn = document.createElement("button");
+          btn.textContent = `Floor ${i + 1}`;
+          btn.classList.toggle("active", i === currentFloorIndex);
+          btn.addEventListener("click", () => {
+            currentFloorIndex = i;
+            render();
+          });
+          floorSelector.appendChild(btn);
+        }
+
+        // Narrative headline
+        if (currentConfig.stories > 2) {
+          const currFloorTemp = current.floors[currentFloorIndex];
+          const refFloorTemp = reform.floors[currentFloorIndex];
+          const cLiv = currFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
+          const rLiv = refFloorTemp.units.reduce((s, u) => s + u.sqft, 0);
+          const dArea = Math.round(rLiv - cLiv);
+          const dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
+          narrativeHeadline.innerHTML = `Three stairways consume <strong>${dArea} sf (+${dPct}%)</strong> of this floor, limiting bedrooms.`;
+        } else if (currentConfig.stories <= 2) {
+          narrativeHeadline.innerHTML =
+            "Chicago currently allows second-story units to access a single stairway. <strong>Choose 3 or 4 stories</strong> to see what changes above the second floor.";
+        } else {
+          narrativeHeadline.innerHTML = "";
+        }
+
+        // Context panel
+        if (currentConfig.stories > 2) {
+          contextPanel.style.display = "";
+          contextPanel.innerHTML = `<ul>
           <li>Buildings with sprinklers and smoke alarms reduce the chance of fire spreading beyond the room of origin from about <strong>46% to 2%</strong> (2024 study)</li>
           <li>A building with <strong>5-8 units needs three stairways</strong> under current code, while a <strong>100+ unit tower only needs two</strong></li>
         </ul>`;
-      } else {
-        contextPanel.style.display = 'none';
-      }
+        } else {
+          contextPanel.style.display = "none";
+        }
 
-      // Floor note
-      if (currentConfig.stories > 2) {
-        floorNote.textContent = 'Above the second story, each unit must access two stairways, requiring three total on a standard lot';
-      } else {
-        floorNote.textContent = '';
-      }
+        // Floor note
+        if (currentConfig.stories > 2) {
+          floorNote.textContent =
+            "Above the second story, each unit must access two stairways, requiring three total on a standard lot";
+        } else {
+          floorNote.textContent = "";
+        }
 
-      // Reusable stat row helpers
-      function addStatRow(table, label, curr, ref, diff, suffix) {
-        const tr = document.createElement('tr');
-        const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
-        const diffStr = diff > 0 ? `+${diff}${suffix || ''}` : diff === 0 ? '\u2014' : `${diff}${suffix || ''}`;
-        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
-        table.appendChild(tr);
-      }
-      function addWbRow(label, curr, ref) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
-        wholeBuildingBody.appendChild(tr);
-      }
+        // Reusable stat row helpers
+        function addStatRow(table, label, curr, ref, diff, suffix) {
+          const tr = document.createElement("tr");
+          const diffClass =
+            diff > 0
+              ? "diff-positive"
+              : diff < 0
+                ? "diff-negative"
+                : "diff-zero";
+          const diffStr =
+            diff > 0
+              ? `+${diff}${suffix || ""}`
+              : diff === 0
+                ? "\u2014"
+                : `${diff}${suffix || ""}`;
+          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td><td class="${diffClass}">${diffStr}</td>`;
+          table.appendChild(tr);
+        }
+        function addWbRow(label, curr, ref) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${label}</td><td>${curr}</td><td>${ref}</td>`;
+          wholeBuildingBody.appendChild(tr);
+        }
 
-      // Reset table headers
-      const pfHead = document.querySelector('#per-floor-table thead tr');
-      pfHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th><th>Difference</th>';
-      const wbHead = document.querySelector('#whole-building-table thead tr');
-      wbHead.innerHTML = '<th></th><th>Current Code</th><th>Reform</th>';
-      document.getElementById('per-floor-heading').innerHTML = `Per-Floor Comparison (Floor <span id="stats-floor-num">${currentFloorIndex + 1}</span>)`;
-      document.getElementById('whole-building-heading').textContent = 'Whole-Building Summary';
+        // Reset table headers
+        const pfHead = document.querySelector("#per-floor-table thead tr");
+        pfHead.innerHTML =
+          "<th></th><th>Current Code</th><th>Reform</th><th>Difference</th>";
+        const wbHead = document.querySelector("#whole-building-table thead tr");
+        wbHead.innerHTML = "<th></th><th>Current Code</th><th>Reform</th>";
+        document.getElementById("per-floor-heading").innerHTML =
+          `Per-Floor Comparison (Floor <span id="stats-floor-num">${currentFloorIndex + 1}</span>)`;
+        document.getElementById("whole-building-heading").textContent =
+          "Whole-Building Summary";
 
-      // SVG
-      currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
-      reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
+        // SVG
+        currentSvgEl.innerHTML = renderFloorPlanSVG(current, currentFloorIndex);
+        reformSvgEl.innerHTML = renderFloorPlanSVG(reform, currentFloorIndex);
 
-      // Deltas for this floor
-      const currFloor = current.floors[currentFloorIndex];
-      const refFloor = reform.floors[currentFloorIndex];
-      const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
-      const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
-      const deltaArea = refLivable - currLivable;
-      const deltaPct = currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : '0';
-      const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
-      const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+        // Deltas for this floor
+        const currFloor = current.floors[currentFloorIndex];
+        const refFloor = reform.floors[currentFloorIndex];
+        const currLivable = currFloor.units.reduce((s, u) => s + u.sqft, 0);
+        const refLivable = refFloor.units.reduce((s, u) => s + u.sqft, 0);
+        const deltaArea = refLivable - currLivable;
+        const deltaPct =
+          currLivable > 0 ? ((deltaArea / currLivable) * 100).toFixed(0) : "0";
+        const currBR = currFloor.units.reduce((s, u) => s + u.bedrooms, 0);
+        const refBR = refFloor.units.reduce((s, u) => s + u.bedrooms, 0);
 
-      deltaPanel.innerHTML = '';
-      function addDelta(value, unit, label) {
-        const sign = value > 0 ? '+' : value === 0 ? '' : '';
-        const d = document.createElement('div');
-        d.className = 'delta-item';
-        d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
-        deltaPanel.appendChild(d);
-      }
+        deltaPanel.innerHTML = "";
+        function addDelta(value, unit, label) {
+          const sign = value > 0 ? "+" : value === 0 ? "" : "";
+          const d = document.createElement("div");
+          d.className = "delta-item";
+          d.innerHTML = `<span class="value">${sign}${value}${unit}</span><span class="label">${label}</span>`;
+          deltaPanel.appendChild(d);
+        }
 
-      const fullStats = computeStats(current, reform);
+        const fullStats = computeStats(current, reform);
 
-      addDelta(Math.round(deltaArea), ' sf', 'Livable Area');
-      addDelta(Number(deltaPct), '%', 'More Space');
-      addDelta(refFloor.staircases.length - currFloor.staircases.length, '', 'Staircases');
-      addDelta(refBR - currBR, '', 'Bedrooms');
+        addDelta(Math.round(deltaArea), " sf", "Livable Area");
+        addDelta(Number(deltaPct), "%", "More Space");
+        addDelta(
+          refFloor.staircases.length - currFloor.staircases.length,
+          "",
+          "Staircases",
+        );
+        addDelta(refBR - currBR, "", "Bedrooms");
 
-      // Per-floor table
-      const pf = fullStats.perFloor[currentFloorIndex];
-      perFloorBody.innerHTML = '';
-      addStatRow(perFloorBody, 'Livable Area', `${Math.round(pf.current.livableArea)} sf`, `${Math.round(pf.reform.livableArea)} sf`, Math.round(pf.reform.livableArea - pf.current.livableArea), ' sf');
-      addStatRow(perFloorBody, 'Units', pf.current.units, pf.reform.units, pf.reform.units - pf.current.units);
-      addStatRow(perFloorBody, 'Avg Unit Size', `${Math.round(pf.current.avgUnitSize)} sf`, `${Math.round(pf.reform.avgUnitSize)} sf`, Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize), ' sf');
-      addStatRow(perFloorBody, 'Bedrooms (est.)', pf.current.bedrooms, pf.reform.bedrooms, pf.reform.bedrooms - pf.current.bedrooms);
-      addStatRow(perFloorBody, 'Staircases', pf.current.staircases, pf.reform.staircases, pf.reform.staircases - pf.current.staircases);
-      addStatRow(perFloorBody, 'Circulation', `${Math.round(pf.current.circulationArea)} sf`, `${Math.round(pf.reform.circulationArea)} sf`, Math.round(pf.reform.circulationArea - pf.current.circulationArea), ' sf');
+        // Per-floor table
+        const pf = fullStats.perFloor[currentFloorIndex];
+        perFloorBody.innerHTML = "";
+        addStatRow(
+          perFloorBody,
+          "Livable Area",
+          `${Math.round(pf.current.livableArea)} sf`,
+          `${Math.round(pf.reform.livableArea)} sf`,
+          Math.round(pf.reform.livableArea - pf.current.livableArea),
+          " sf",
+        );
+        addStatRow(
+          perFloorBody,
+          "Units",
+          pf.current.units,
+          pf.reform.units,
+          pf.reform.units - pf.current.units,
+        );
+        addStatRow(
+          perFloorBody,
+          "Avg Unit Size",
+          `${Math.round(pf.current.avgUnitSize)} sf`,
+          `${Math.round(pf.reform.avgUnitSize)} sf`,
+          Math.round(pf.reform.avgUnitSize - pf.current.avgUnitSize),
+          " sf",
+        );
+        addStatRow(
+          perFloorBody,
+          "Bedrooms (est.)",
+          pf.current.bedrooms,
+          pf.reform.bedrooms,
+          pf.reform.bedrooms - pf.current.bedrooms,
+        );
+        addStatRow(
+          perFloorBody,
+          "Staircases",
+          pf.current.staircases,
+          pf.reform.staircases,
+          pf.reform.staircases - pf.current.staircases,
+        );
+        addStatRow(
+          perFloorBody,
+          "Circulation",
+          `${Math.round(pf.current.circulationArea)} sf`,
+          `${Math.round(pf.reform.circulationArea)} sf`,
+          Math.round(pf.reform.circulationArea - pf.current.circulationArea),
+          " sf",
+        );
 
-      // Whole-building table
-      wholeBuildingBody.innerHTML = '';
-      const wb = fullStats.wholeBuilding;
-      addWbRow('Total Units', wb.current.totalUnits, wb.reform.totalUnits);
-      addWbRow('Total Bedrooms', wb.current.totalBedrooms, wb.reform.totalBedrooms);
-      addWbRow('Avg Unit Size', `${Math.round(wb.current.avgUnitSize)} sf`, `${Math.round(wb.reform.avgUnitSize)} sf`);
-      addWbRow('Total Livable Area', `${Math.round(wb.current.totalLivableArea)} sf`, `${Math.round(wb.reform.totalLivableArea)} sf`);
-      addWbRow('Space Lost to Stairs/Halls', `${Math.round(wb.current.totalCirculation)} sf`, `${Math.round(wb.reform.totalCirculation)} sf`);
+        // Whole-building table
+        wholeBuildingBody.innerHTML = "";
+        const wb = fullStats.wholeBuilding;
+        addWbRow("Total Units", wb.current.totalUnits, wb.reform.totalUnits);
+        addWbRow(
+          "Total Bedrooms",
+          wb.current.totalBedrooms,
+          wb.reform.totalBedrooms,
+        );
+        addWbRow(
+          "Avg Unit Size",
+          `${Math.round(wb.current.avgUnitSize)} sf`,
+          `${Math.round(wb.reform.avgUnitSize)} sf`,
+        );
+        addWbRow(
+          "Total Livable Area",
+          `${Math.round(wb.current.totalLivableArea)} sf`,
+          `${Math.round(wb.reform.totalLivableArea)} sf`,
+        );
+        addWbRow(
+          "Space Lost to Stairs/Halls",
+          `${Math.round(wb.current.totalCirculation)} sf`,
+          `${Math.round(wb.reform.totalCirculation)} sf`,
+        );
 
-      // Update hero stat cards
-      const s1v = document.getElementById('hero-stat1-value');
-      const s1l = document.getElementById('hero-stat1-label');
-      const s2v = document.getElementById('hero-stat2-value');
-      const s2l = document.getElementById('hero-stat2-label');
-      const s3v = document.getElementById('hero-stat3-value');
-      const s3l = document.getElementById('hero-stat3-label');
+        // Update hero stat cards
+        const s1v = document.getElementById("hero-stat1-value");
+        const s1l = document.getElementById("hero-stat1-label");
+        const s2v = document.getElementById("hero-stat2-value");
+        const s2l = document.getElementById("hero-stat2-label");
+        const s3v = document.getElementById("hero-stat3-value");
+        const s3l = document.getElementById("hero-stat3-label");
 
-      const heroStats = computeStats(current, reform);
-      const hs = heroStats.wholeBuilding;
-      const livPct = hs.current.totalLivableArea > 0
-        ? Math.round(((hs.reform.totalLivableArea - hs.current.totalLivableArea) / hs.current.totalLivableArea) * 100)
-        : 0;
-      let currBRPerUnit = 2, refBRPerUnit = 3;
-      if (currentConfig.stories >= 3) {
-        const f3c = current.floors[2];
-        const f3r = reform.floors[2];
-        const cUnits = f3c.units.filter(u => u.type === 'residential');
-        const rUnits = f3r.units.filter(u => u.type === 'residential');
-        if (cUnits.length > 0) currBRPerUnit = Math.round(cUnits.reduce((s, u) => s + u.bedrooms, 0) / cUnits.length);
-        if (rUnits.length > 0) refBRPerUnit = Math.round(rUnits.reduce((s, u) => s + u.bedrooms, 0) / rUnits.length);
-      }
-      const currStairsF3 = currentConfig.stories >= 3 ? current.floors[2].staircases.length : 1;
-      s1v.innerHTML = `${currStairsF3} <span class="arrow">&rarr;</span> 1`;
-      s1l.textContent = 'Staircases per Building';
-      s2v.textContent = `+${livPct}%`;
-      s2l.textContent = 'Livable Space per Floor';
-      s3v.innerHTML = `${currBRPerUnit} <span class="arrow">&rarr;</span> ${refBRPerUnit} BR`;
-      s3l.textContent = 'Bedrooms per Unit';
+        const heroStats = computeStats(current, reform);
+        const hs = heroStats.wholeBuilding;
+        const livPct =
+          hs.current.totalLivableArea > 0
+            ? Math.round(
+                ((hs.reform.totalLivableArea - hs.current.totalLivableArea) /
+                  hs.current.totalLivableArea) *
+                  100,
+              )
+            : 0;
+        let currBRPerUnit = 2,
+          refBRPerUnit = 3;
+        if (currentConfig.stories >= 3) {
+          const f3c = current.floors[2];
+          const f3r = reform.floors[2];
+          const cUnits = f3c.units.filter((u) => u.type === "residential");
+          const rUnits = f3r.units.filter((u) => u.type === "residential");
+          if (cUnits.length > 0)
+            currBRPerUnit = Math.round(
+              cUnits.reduce((s, u) => s + u.bedrooms, 0) / cUnits.length,
+            );
+          if (rUnits.length > 0)
+            refBRPerUnit = Math.round(
+              rUnits.reduce((s, u) => s + u.bedrooms, 0) / rUnits.length,
+            );
+        }
+        const currStairsF3 =
+          currentConfig.stories >= 3 ? current.floors[2].staircases.length : 1;
+        s1v.innerHTML = `${currStairsF3} <span class="arrow">&rarr;</span> 1`;
+        s1l.textContent = "Staircases per Building";
+        s2v.textContent = `+${livPct}%`;
+        s2l.textContent = "Livable Space per Floor";
+        s3v.innerHTML = `${currBRPerUnit} <span class="arrow">&rarr;</span> ${refBRPerUnit} BR`;
+        s3l.textContent = "Bedrooms per Unit";
 
-      // Update URL hash
-      window.history.replaceState(null, '', encodeConfigToHash(currentConfig));
+        // Update URL hash
+        window.history.replaceState(
+          null,
+          "",
+          encodeConfigToHash(currentConfig),
+        );
 
-      // Set up hover interactions
-      setupHoverInteractions();
+        // Set up hover interactions
+        setupHoverInteractions();
 
-      // Re-render 3D view if active
-      if (document.getElementById('three-tab').style.display !== 'none') {
-        render3D();
-      }
-    }
-
-    // --- Hover interactions ---
-    function setupHoverInteractions() {
-      document.querySelectorAll('[data-type="unit"]').forEach(el => {
-        el.addEventListener('mouseenter', (e) => {
-          el.style.opacity = '0.7';
-          const id = el.getAttribute('data-id');
-          tooltip.style.display = 'block';
-          tooltip.textContent = `Unit ${id}`;
-        });
-        el.addEventListener('mousemove', (e) => {
-          tooltip.style.left = (e.clientX + 12) + 'px';
-          tooltip.style.top = (e.clientY + 12) + 'px';
-        });
-        el.addEventListener('mouseleave', () => {
-          el.style.opacity = '1';
-          tooltip.style.display = 'none';
-        });
-      });
-
-      document.querySelectorAll('[data-type="staircase"]').forEach(el => {
-        el.addEventListener('mouseenter', (e) => {
-          el.style.opacity = '1';
-          const w = parseFloat(el.getAttribute('width'));
-          const d = parseFloat(el.getAttribute('height'));
-          tooltip.style.display = 'block';
-          tooltip.textContent = `Staircase: ${Math.round(w * d)} sf consumed`;
-        });
-        el.addEventListener('mousemove', (e) => {
-          tooltip.style.left = (e.clientX + 12) + 'px';
-          tooltip.style.top = (e.clientY + 12) + 'px';
-        });
-        el.addEventListener('mouseleave', () => {
-          el.style.opacity = '0.8';
-          tooltip.style.display = 'none';
-        });
-      });
-
-    }
-
-    // --- Event listeners ---
-    lotSelect.addEventListener('change', () => {
-      currentConfig.lot = lotSelect.value;
-      render();
-    });
-
-    storiesGroup.querySelectorAll('button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        currentConfig.stories = parseInt(btn.dataset.value, 10);
-        storiesGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        render();
-      });
-    });
-
-    // Tab switching
-    document.querySelectorAll('.tab-bar button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const tab = btn.dataset.tab;
-        document.getElementById('floorplan-tab').style.display = tab === 'floorplan' ? '' : 'none';
-        document.getElementById('three-tab').style.display = tab === '3d' ? '' : 'none';
-        if (tab === '3d') render3D();
-      });
-    });
-
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      // Tour mode: arrow keys navigate tour steps
-      const tourState = typeof getViewerState === 'function' ? getViewerState().tourState : null;
-      if (tourState && tourState.active && !tourState.animating) {
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault();
-          advanceTour(tourState, -1);
-          goToTourStep(tourState.currentStep);
-          updateTourUI();
-          return;
-        } else if (e.key === 'ArrowRight') {
-          e.preventDefault();
-          advanceTour(tourState, 1);
-          goToTourStep(tourState.currentStep);
-          updateTourUI();
-          return;
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          endTour();
-          updateTourUI();
-          return;
+        // Re-render 3D view if active
+        if (document.getElementById("three-tab").style.display !== "none") {
+          render3D();
         }
       }
 
-      // Normal floor navigation
-      if (e.key === 'ArrowLeft' && currentFloorIndex > 0) {
-        currentFloorIndex--;
-        render();
-      } else if (e.key === 'ArrowRight' && currentFloorIndex < currentConfig.stories - 1) {
-        currentFloorIndex++;
-        render();
-      }
-    });
+      // --- Hover interactions ---
+      function setupHoverInteractions() {
+        document.querySelectorAll('[data-type="unit"]').forEach((el) => {
+          el.addEventListener("mouseenter", (e) => {
+            el.style.opacity = "0.7";
+            const id = el.getAttribute("data-id");
+            tooltip.style.display = "block";
+            tooltip.textContent = `Unit ${id}`;
+          });
+          el.addEventListener("mousemove", (e) => {
+            tooltip.style.left = e.clientX + 12 + "px";
+            tooltip.style.top = e.clientY + 12 + "px";
+          });
+          el.addEventListener("mouseleave", () => {
+            el.style.opacity = "1";
+            tooltip.style.display = "none";
+          });
+        });
 
-    // Hash change
-    window.addEventListener('hashchange', () => {
-      currentConfig = decodeHashToConfig(window.location.hash);
+        document.querySelectorAll('[data-type="staircase"]').forEach((el) => {
+          el.addEventListener("mouseenter", (e) => {
+            el.style.opacity = "1";
+            const w = parseFloat(el.getAttribute("width"));
+            const d = parseFloat(el.getAttribute("height"));
+            tooltip.style.display = "block";
+            tooltip.textContent = `Staircase: ${Math.round(w * d)} sf consumed`;
+          });
+          el.addEventListener("mousemove", (e) => {
+            tooltip.style.left = e.clientX + 12 + "px";
+            tooltip.style.top = e.clientY + 12 + "px";
+          });
+          el.addEventListener("mouseleave", () => {
+            el.style.opacity = "0.8";
+            tooltip.style.display = "none";
+          });
+        });
+      }
+
+      // --- Event listeners ---
+      lotSelect.addEventListener("change", () => {
+        currentConfig.lot = lotSelect.value;
+        render();
+      });
+
+      storiesGroup.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          currentConfig.stories = parseInt(btn.dataset.value, 10);
+          storiesGroup
+            .querySelectorAll("button")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          render();
+        });
+      });
+
+      // Tab switching
+      document.querySelectorAll(".tab-bar button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab-bar button")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const tab = btn.dataset.tab;
+          document.getElementById("floorplan-tab").style.display =
+            tab === "floorplan" ? "" : "none";
+          document.getElementById("three-tab").style.display =
+            tab === "3d" ? "" : "none";
+          if (tab === "3d") render3D();
+        });
+      });
+
+      // Keyboard navigation
+      document.addEventListener("keydown", (e) => {
+        // Tour mode: arrow keys navigate tour steps
+        const tourState =
+          typeof getViewerState === "function"
+            ? getViewerState().tourState
+            : null;
+        if (tourState && tourState.active && !tourState.animating) {
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            advanceTour(tourState, -1);
+            goToTourStep(tourState.currentStep);
+            updateTourUI();
+            return;
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            advanceTour(tourState, 1);
+            goToTourStep(tourState.currentStep);
+            updateTourUI();
+            return;
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            endTour();
+            updateTourUI();
+            return;
+          }
+        }
+
+        // Normal floor navigation
+        if (e.key === "ArrowLeft" && currentFloorIndex > 0) {
+          currentFloorIndex--;
+          render();
+        } else if (
+          e.key === "ArrowRight" &&
+          currentFloorIndex < currentConfig.stories - 1
+        ) {
+          currentFloorIndex++;
+          render();
+        }
+      });
+
+      // Hash change
+      window.addEventListener("hashchange", () => {
+        currentConfig = decodeHashToConfig(window.location.hash);
+        syncControlsToConfig();
+        render();
+      });
+
+      // 3D rendering
+      let _render3DTimeout = null;
+      let _isRendering3D = false;
+
+      function render3D() {
+        if (_isRendering3D) return;
+        clearTimeout(_render3DTimeout);
+        _render3DTimeout = setTimeout(function () {
+          _isRendering3D = true;
+          try {
+            const container = document.getElementById("three-container");
+            container.style.display = "block";
+            renderBuildings(container, currentConfig);
+            updateTourUI();
+          } finally {
+            _isRendering3D = false;
+          }
+        }, 100);
+      }
+
+      // Tour UI management
+      function updateTourUI() {
+        const tourControls = document.getElementById("tour-controls");
+        const tourAnnotation = document.getElementById("tour-annotation");
+        const tourBtn = document.getElementById("tour-start-btn");
+        const state = getViewerState().tourState;
+
+        if (!state || !state.active) {
+          tourControls.style.display = "none";
+          tourAnnotation.style.display = "none";
+          if (tourBtn) tourBtn.classList.remove("active");
+          return;
+        }
+
+        tourControls.style.display = "flex";
+        tourAnnotation.style.display = "";
+        if (tourBtn) tourBtn.classList.add("active");
+
+        const step = state.steps[state.currentStep];
+        document.getElementById("tour-title").textContent = step.title;
+        document.getElementById("tour-description").textContent =
+          step.description;
+        document.getElementById("tour-indicator").textContent =
+          state.currentStep + 1 + " / " + state.steps.length;
+
+        document.getElementById("tour-prev").disabled = state.currentStep === 0;
+        document.getElementById("tour-next").disabled =
+          state.currentStep === state.steps.length - 1;
+      }
+
+      // Tour button handlers
+      document
+        .getElementById("tour-start-btn")
+        .addEventListener("click", function () {
+          const state = getViewerState().tourState;
+          if (state && state.active) {
+            endTour();
+            updateTourUI();
+          } else {
+            startTour(currentConfig);
+            updateTourUI();
+          }
+        });
+
+      document
+        .getElementById("tour-prev")
+        .addEventListener("click", function () {
+          const state = getViewerState().tourState;
+          if (state && state.active && !state.animating) {
+            advanceTour(state, -1);
+            goToTourStep(state.currentStep);
+            updateTourUI();
+          }
+        });
+
+      document
+        .getElementById("tour-next")
+        .addEventListener("click", function () {
+          const state = getViewerState().tourState;
+          if (state && state.active && !state.animating) {
+            advanceTour(state, 1);
+            goToTourStep(state.currentStep);
+            updateTourUI();
+          }
+        });
+
+      // --- Init ---
       syncControlsToConfig();
       render();
-    });
-
-    // 3D rendering
-    let _render3DTimeout = null;
-    let _isRendering3D = false;
-
-    function render3D() {
-      if (_isRendering3D) return;
-      clearTimeout(_render3DTimeout);
-      _render3DTimeout = setTimeout(function() {
-        _isRendering3D = true;
-        try {
-          const container = document.getElementById('three-container');
-          container.style.display = 'block';
-          renderBuildings(container, currentConfig);
-          updateTourUI();
-        } finally {
-          _isRendering3D = false;
-        }
-      }, 100);
-    }
-
-    // Tour UI management
-    function updateTourUI() {
-      const tourControls = document.getElementById('tour-controls');
-      const tourAnnotation = document.getElementById('tour-annotation');
-      const tourBtn = document.getElementById('tour-start-btn');
-      const state = getViewerState().tourState;
-
-      if (!state || !state.active) {
-        tourControls.style.display = 'none';
-        tourAnnotation.style.display = 'none';
-        if (tourBtn) tourBtn.classList.remove('active');
-        return;
-      }
-
-      tourControls.style.display = 'flex';
-      tourAnnotation.style.display = '';
-      if (tourBtn) tourBtn.classList.add('active');
-
-      const step = state.steps[state.currentStep];
-      document.getElementById('tour-title').textContent = step.title;
-      document.getElementById('tour-description').textContent = step.description;
-      document.getElementById('tour-indicator').textContent = (state.currentStep + 1) + ' / ' + state.steps.length;
-
-      document.getElementById('tour-prev').disabled = state.currentStep === 0;
-      document.getElementById('tour-next').disabled = state.currentStep === state.steps.length - 1;
-    }
-
-    // Tour button handlers
-    document.getElementById('tour-start-btn').addEventListener('click', function() {
-      const state = getViewerState().tourState;
-      if (state && state.active) {
-        endTour();
-        updateTourUI();
-      } else {
-        startTour(currentConfig);
-        updateTourUI();
-      }
-    });
-
-    document.getElementById('tour-prev').addEventListener('click', function() {
-      const state = getViewerState().tourState;
-      if (state && state.active && !state.animating) {
-        advanceTour(state, -1);
-        goToTourStep(state.currentStep);
-        updateTourUI();
-      }
-    });
-
-    document.getElementById('tour-next').addEventListener('click', function() {
-      const state = getViewerState().tourState;
-      if (state && state.active && !state.animating) {
-        advanceTour(state, 1);
-        goToTourStep(state.currentStep);
-        updateTourUI();
-      }
-    });
-
-    // --- Init ---
-    syncControlsToConfig();
-    render();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
