@@ -701,17 +701,17 @@ const reformLayout = generateLayout({
 });
 const refFloor3 = reformLayout.floors[2];
 
-// Get circulation width from staircase x + w (the right edge of the circulation column)
-const msCircRight = Math.max(
-  ...msFloor3.staircases.map((s) => s.x + s.w),
-  ...msFloor3.hallways.map((h) => h.x + h.w),
+// Get circulation width (total footprint width, not right-edge position)
+const msCircWidth = Math.max(
+  ...msFloor3.staircases.map((s) => s.w),
+  ...msFloor3.hallways.map((h) => h.w),
 );
-const refCircRight = Math.max(
-  ...refFloor3.staircases.map((s) => s.x + s.w),
+const refCircWidth = Math.max(
+  ...refFloor3.staircases.map((s) => s.w),
 );
 assert(
-  msCircRight > refCircRight,
-  `3-stair circulation column (${msCircRight}ft) wider than 1-stair (${refCircRight}ft)`,
+  msCircWidth > refCircWidth,
+  `3-stair circulation column (${msCircWidth}ft) wider than 1-stair (${refCircWidth}ft)`,
 );
 
 // Stairs distributed front/center/rear

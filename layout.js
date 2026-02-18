@@ -103,7 +103,7 @@ function generateStandardFloor(lot, staircaseCount, floorLevel) {
     staircases.push({ x: 0, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
     staircases.push({ x: 0, y: bd - STAIR_D, w: STAIR_W, d: STAIR_D, type: "gangway" });
   } else {
-    staircases.push({ x: 0, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
+    staircases.push({ x: (bw - STAIR_W) / 2, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
   }
 
   // Units span full buildable width; sqft deducts stair overlap
@@ -299,10 +299,12 @@ function generateMultiStairFloor(lot, floorLevel) {
 }
 
 function estimateBedrooms(sqft, windowWallCount) {
-  // Rule of thumb: 1 BR per ~150sf of non-kitchen/bath space, capped by window walls
-  const nonKitchenBath = sqft - 150;
-  const bySpace = Math.max(1, Math.floor(nonKitchenBath / 150));
-  return Math.min(bySpace, Math.max(1, windowWallCount * 3));
+  // Realistic Chicago sizing: ~250sf for kitchen/bath/entry, ~200sf per bedroom
+  // 560sf (current code single lot) → 1 BR; 780sf (reform single lot) → 2 BR
+  if (sqft < 400) return 0; // Studio
+  const bedroomSpace = sqft - 250;
+  const bySpace = Math.max(1, Math.floor(bedroomSpace / 200));
+  return Math.min(bySpace, Math.max(1, windowWallCount * 2));
 }
 
 // Make available globally (browser) and for Node require
