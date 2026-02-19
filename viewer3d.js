@@ -537,6 +537,10 @@ function setupScene(container) {
 function disposeScene(scene) {
   if (!scene) return;
   scene.traverse(function (obj) {
+    // Remove CSS2DObject DOM elements so labels don't accumulate
+    if (obj instanceof CSS2DObject && obj.element && obj.element.parentNode) {
+      obj.element.parentNode.removeChild(obj.element);
+    }
     if (obj.geometry) obj.geometry.dispose();
     if (obj.material) {
       if (Array.isArray(obj.material)) {
