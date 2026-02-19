@@ -37,13 +37,42 @@
   <div id="status">Running...</div>
   <div id="log"></div>
 
-  <!-- Source files loaded before tests -->
+  <!-- Non-3D source files (plain scripts, globally available) -->
   <script src="layout.js"></script>
   <script src="renderer.js"></script>
   <script src="stats.js"></script>
   <script src="state.js"></script>
-  <script src="mesh.js"></script>
-  <script src="courtyard.js"></script>
+
+  <!-- Import map for ES module resolution -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.183.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Load ES modules and expose their exports globally for tests -->
+  <script type="module">
+    import { buildMeshData, RESIDENTIAL_FLOOR_HEIGHT } from './mesh.js';
+    import { createTourSteps, createTourState, advanceTour, easeInOutCubic } from './tour.js';
+    import { MATERIAL_COLORS, MATERIAL_OPACITY } from './viewer3d.js';
+
+    // Expose as globals for the test suite
+    window.buildMeshData = buildMeshData;
+    window.RESIDENTIAL_FLOOR_HEIGHT = RESIDENTIAL_FLOOR_HEIGHT;
+    window.createTourSteps = createTourSteps;
+    window.createTourState = createTourState;
+    window.advanceTour = advanceTour;
+    window.easeInOutCubic = easeInOutCubic;
+    window.MATERIAL_COLORS = MATERIAL_COLORS;
+    window.MATERIAL_OPACITY = MATERIAL_OPACITY;
+
+    // Signal that modules are loaded
+    window._modulesLoaded = true;
+    window.dispatchEvent(new Event('modules-loaded'));
+  </script>
 
   <script>
     // Capture console output
@@ -65,21 +94,29 @@
       line.textContent = args.join(' ');
       logEl.appendChild(line);
     };
-  </script>
 
-  <script src="tests.js"></script>
+    // Wait for ES modules to load, then run tests
+    function runTests() {
+      const script = document.createElement('script');
+      script.src = 'tests.js';
+      script.onload = function() {
+        if (typeof _failed !== 'undefined') {
+          if (_failed === 0) {
+            statusEl.textContent = '\u2713 All ' + _passed + ' tests passed';
+            statusEl.className = 'pass';
+          } else {
+            statusEl.textContent = '\u2717 ' + _failed + ' failed, ' + _passed + ' passed';
+            statusEl.className = 'fail';
+          }
+        }
+      };
+      document.body.appendChild(script);
+    }
 
-  <script>
-    // Update status after tests complete
-    // _passed and _failed are globals from tests.js
-    if (typeof _failed !== 'undefined') {
-      if (_failed === 0) {
-        statusEl.textContent = `✓ All ${_passed} tests passed`;
-        statusEl.className = 'pass';
-      } else {
-        statusEl.textContent = `✗ ${_failed} failed, ${_passed} passed`;
-        statusEl.className = 'fail';
-      }
+    if (window._modulesLoaded) {
+      runTests();
+    } else {
+      window.addEventListener('modules-loaded', runTests);
     }
   </script>
 </body>

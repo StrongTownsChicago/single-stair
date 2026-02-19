@@ -8,7 +8,14 @@ Interactive advocacy visualization for Strong Towns Chicago comparing Chicago's 
 
 ## Development
 
-No build step. Open `index.html` directly in a browser.
+No build step. Serve the project root with any local HTTP server (ES modules require it):
+
+```bash
+python3 -m http.server 8000
+# or: npx serve .
+```
+
+Then open `http://localhost:8000`.
 
 **Run tests:**
 ```bash
@@ -21,20 +28,21 @@ The test suite (`tests.js`) uses a custom zero-dependency assertion framework (a
 
 ## Architecture
 
-Pure client-side JavaScript with no npm dependencies. Three.js r128 loaded via CDN.
+Pure client-side JavaScript with no npm dependencies. Three.js r183 loaded via CDN import map (ES modules).
 
 **All application code lives in the root directory** — there are no src/ or lib/ directories:
 
 | File | Role |
 |------|------|
-| `index.html` | App shell: markup, all CSS, UI controller logic (event handlers, DOM updates, app initialization) |
-| `layout.js` | Layout engine: generates floor plan data (units, staircases, hallways with x/y/w/d coordinates) from configuration |
-| `renderer.js` | SVG renderer: converts layout data to horizontal SVG floor plans |
-| `viewer3d.js` | Three.js 3D scene: materials, camera, orbit controls, render loop, labels |
-| `mesh.js` | Converts layout output to Three.js mesh descriptors |
-| `stats.js` | Per-floor and whole-building comparison statistics |
-| `state.js` | URL hash encoding/decoding for shareable configuration |
-| `tour.js` | Step-based guided camera tour for presentations |
+| `index.html` | App shell: markup, all CSS, import map for Three.js r183 |
+| `app.js` | App controller (ES module): imports from viewer3d.js and tour.js, event handlers, DOM updates, initialization |
+| `layout.js` | Layout engine (plain script): generates floor plan data (units, staircases, hallways with x/y/w/d coordinates) from configuration |
+| `renderer.js` | SVG renderer (plain script): converts layout data to horizontal SVG floor plans |
+| `viewer3d.js` | 3D viewer (ES module): Three.js scene, PBR materials, post-processing, CSS2D labels, camera, orbit controls |
+| `mesh.js` | 3D mesh data (ES module): converts layout output to Three.js mesh descriptors |
+| `stats.js` | Per-floor and whole-building comparison statistics (plain script) |
+| `state.js` | URL hash encoding/decoding for shareable configuration (plain script) |
+| `tour.js` | Step-based guided camera tour for presentations (ES module) |
 
 ### Data Flow
 
@@ -51,9 +59,22 @@ Configuration (lot type, stories, stair mode)
 
 The layout engine (`layout.js`) uses X = lot width, Y = lot depth. The SVG renderer (`renderer.js`) **swaps axes** so depth runs left-to-right, making the narrow 20×80 ft lot ratio display compactly as a horizontal plan.
 
-### 3D Viewer Resource Management
+### Module System
 
-`viewer3d.js` uses module-level state (`_renderer`, `_scene`, `_camera`, `_controls`) and reuses them across renders to prevent WebGL context leaks. The render loop uses idle timeouts for performance.
+The project uses a hybrid module approach:
+- **ES modules** (`type="module"`): `app.js`, `viewer3d.js`, `mesh.js`, `tour.js` — these use `import`/`export` and are loaded via the import map in `index.html`
+- **Plain scripts**: `layout.js`, `renderer.js`, `stats.js`, `state.js` — these attach to `window` globals and are loaded as regular `<script>` tags before `app.js`
+
+### 3D Viewer
+
+`viewer3d.js` is an ES module that imports directly from Three.js r183 addons:
+- **Materials**: MeshPhysicalMaterial with clearcoat (PBR)
+- **Lighting**: Directional lights + RectAreaLight + PMREMGenerator environment map (RoomEnvironment)
+- **Post-processing**: EffectComposer pipeline — RenderPass → UnrealBloomPass → SMAAPass → OutputPass
+- **Labels**: CSS2DRenderer / CSS2DObject (replaces canvas text sprites from r128)
+- **Geometry details**: Window insets on exterior walls, roof parapets on top floors, floor slab overhangs, staircase diagonal indicators, ground plane with contact shadows
+
+Module-level state (`_renderer`, `_scene`, `_camera`, `_controls`) is reused across renders to prevent WebGL context leaks. The render loop uses idle timeouts for performance.
 
 ## Lot Dimensions
 

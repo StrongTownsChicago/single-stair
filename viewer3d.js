@@ -1,8 +1,24 @@
 // Single Stair Visualizer -- 3D Viewer
 // Three.js scene management, building construction, materials, labels
+// Post-processing, physical materials, geometry detail, CSS2D labels
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { buildMeshData } from './mesh.js';
+import { createTourSteps, createTourState, advanceTour, animateCamera } from './tour.js';
 
 // Module-level state (reused across re-renders to avoid WebGL context leaks)
 var _renderer = null;
+var _composer = null;
+var _labelRenderer = null;
 var _scene = null;
 var _camera = null;
 var _controls = null;
@@ -20,6 +36,7 @@ var MATERIAL_COLORS = {
   slab: 0xCCC7BF,        // Concrete
   windowEdge: 0xD4A843,  // Warm gold
   edge: 0x6E6A64,        // Architectural edge lines
+  window: 0x4A6B8A,      // Glass blue-grey
 };
 
 var MATERIAL_OPACITY = {
@@ -30,7 +47,7 @@ var MATERIAL_OPACITY = {
 };
 
 var MATERIAL_ROUGHNESS = {
-  unit: 0.88,
+  unit: 0.85,
   staircase: 0.72,
   hallway: 0.90,
   slab: 0.95,
@@ -39,6 +56,7 @@ var MATERIAL_ROUGHNESS = {
 // Material cache to reduce draw calls
 var _materialCache = {};
 var _edgeMaterialCache = null;
+var _windowMaterialCache = null;
 
 function getMaterial(type) {
   if (_materialCache[type]) return _materialCache[type];
@@ -48,13 +66,32 @@ function getMaterial(type) {
   var roughness = MATERIAL_ROUGHNESS[type] || 0.8;
   var transparent = opacity < 1.0;
 
-  var mat = new THREE.MeshStandardMaterial({
+  // Physical materials with clearcoat for architectural sheen
+  var matProps = {
     color: color,
     roughness: roughness,
     metalness: 0.02,
     transparent: transparent,
     opacity: opacity,
-  });
+  };
+
+  if (type === "unit") {
+    matProps.clearcoat = 0.05;
+    matProps.clearcoatRoughness = 0.4;
+    matProps.envMapIntensity = 0.3;
+  } else if (type === "staircase") {
+    matProps.clearcoat = 0.1;
+    matProps.clearcoatRoughness = 0.3;
+    matProps.envMapIntensity = 0.3;
+  } else if (type === "hallway") {
+    matProps.envMapIntensity = 0.2;
+  } else if (type === "slab") {
+    matProps.clearcoat = 0.02;
+    matProps.clearcoatRoughness = 0.8;
+    matProps.envMapIntensity = 0.2;
+  }
+
+  var mat = new THREE.MeshPhysicalMaterial(matProps);
 
   // Prevent z-fighting where staircase overlaps unit geometry
   if (type === "staircase") {
@@ -65,6 +102,19 @@ function getMaterial(type) {
 
   _materialCache[type] = mat;
   return mat;
+}
+
+function getWindowMaterial() {
+  if (_windowMaterialCache) return _windowMaterialCache;
+  _windowMaterialCache = new THREE.MeshPhysicalMaterial({
+    color: MATERIAL_COLORS.window,
+    roughness: 0.1,
+    metalness: 0.3,
+    envMapIntensity: 0.8,
+    transparent: true,
+    opacity: 0.7,
+  });
+  return _windowMaterialCache;
 }
 
 function getEdgeMaterial() {
@@ -84,24 +134,149 @@ function addEdgeLines(group, geometry, position) {
   group.add(edgeLines);
 }
 
-function createTextSprite(text, color) {
-  var canvas = document.createElement("canvas");
-  var ctx = canvas.getContext("2d");
-  canvas.width = 512;
-  canvas.height = 64;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = color || "#FFFFFF";
-  ctx.font = "bold 36px 'Instrument Sans', sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, 256, 32);
+function createLabel(text, color) {
+  var div = document.createElement("div");
+  div.textContent = text;
+  div.style.cssText = "font-family:'Instrument Sans',sans-serif;font-weight:700;font-size:14px;color:" + (color || "#fff") + ";text-shadow:0 2px 8px rgba(0,0,0,0.7),0 0 20px rgba(0,0,0,0.5);pointer-events:none;white-space:nowrap;letter-spacing:0.04em;";
+  var label = new CSS2DObject(div);
+  return label;
+}
 
-  var texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  var material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  var sprite = new THREE.Sprite(material);
-  sprite.scale.set(20, 2.5, 1);
-  return sprite;
+function addWindowInsets(group, meshDesc, centerX, centerZ) {
+  if (!meshDesc.windowWalls || meshDesc.windowWalls.length === 0) return;
+
+  var winMat = getWindowMaterial();
+  var INSET = 0.15;
+  var WIN_W = 2.5;
+  var WIN_H = 4;
+  var WIN_D = 0.3;
+  var yBase = meshDesc.y + (meshDesc.height - WIN_H) / 2;
+
+  for (var w = 0; w < meshDesc.windowWalls.length; w++) {
+    var wall = meshDesc.windowWalls[w];
+    var wallLen, numWindows;
+
+    if (wall === "north" || wall === "south") {
+      wallLen = meshDesc.width;
+    } else {
+      wallLen = meshDesc.depth;
+    }
+
+    numWindows = Math.max(1, Math.floor(wallLen / 8));
+    var spacing = wallLen / (numWindows + 1);
+
+    for (var n = 0; n < numWindows; n++) {
+      var winGeo = new THREE.BoxGeometry(
+        (wall === "east" || wall === "west") ? WIN_D : WIN_W,
+        WIN_H,
+        (wall === "north" || wall === "south") ? WIN_D : WIN_W
+      );
+      var winMesh = new THREE.Mesh(winGeo, winMat);
+
+      var offset = spacing * (n + 1);
+      var px, py, pz;
+      py = yBase + WIN_H / 2;
+
+      if (wall === "north") {
+        px = meshDesc.x + offset - centerX;
+        pz = meshDesc.z - INSET - centerZ;
+      } else if (wall === "south") {
+        px = meshDesc.x + offset - centerX;
+        pz = meshDesc.z + meshDesc.depth + INSET - centerZ;
+      } else if (wall === "east") {
+        px = meshDesc.x + meshDesc.width + INSET - centerX;
+        pz = meshDesc.z + offset - centerZ;
+      } else if (wall === "west") {
+        px = meshDesc.x - INSET - centerX;
+        pz = meshDesc.z + offset - centerZ;
+      } else {
+        continue;
+      }
+
+      winMesh.position.set(px, py, pz);
+      group.add(winMesh);
+    }
+  }
+}
+
+function addRoofParapets(group, meshDesc, centerX, centerZ) {
+  var PARAPET_H = 1.5;
+  var PARAPET_T = 0.4;
+  var slabMat = getMaterial("slab");
+  var topY = meshDesc.y + meshDesc.height + PARAPET_H / 2;
+
+  // North wall
+  var nGeo = new THREE.BoxGeometry(meshDesc.width, PARAPET_H, PARAPET_T);
+  var nMesh = new THREE.Mesh(nGeo, slabMat);
+  nMesh.position.set(
+    meshDesc.x + meshDesc.width / 2 - centerX,
+    topY,
+    meshDesc.z - PARAPET_T / 2 - centerZ
+  );
+  nMesh.castShadow = true;
+  group.add(nMesh);
+
+  // South wall
+  var sMesh = new THREE.Mesh(nGeo, slabMat);
+  sMesh.position.set(
+    meshDesc.x + meshDesc.width / 2 - centerX,
+    topY,
+    meshDesc.z + meshDesc.depth + PARAPET_T / 2 - centerZ
+  );
+  sMesh.castShadow = true;
+  group.add(sMesh);
+
+  // East wall
+  var eGeo = new THREE.BoxGeometry(PARAPET_T, PARAPET_H, meshDesc.depth + PARAPET_T * 2);
+  var eMesh = new THREE.Mesh(eGeo, slabMat);
+  eMesh.position.set(
+    meshDesc.x + meshDesc.width + PARAPET_T / 2 - centerX,
+    topY,
+    meshDesc.z + meshDesc.depth / 2 - centerZ
+  );
+  eMesh.castShadow = true;
+  group.add(eMesh);
+
+  // West wall
+  var wMesh = new THREE.Mesh(eGeo, slabMat);
+  wMesh.position.set(
+    meshDesc.x - PARAPET_T / 2 - centerX,
+    topY,
+    meshDesc.z + meshDesc.depth / 2 - centerZ
+  );
+  wMesh.castShadow = true;
+  group.add(wMesh);
+}
+
+function addStairIndication(group, meshDesc, centerX, centerZ) {
+  var lineMat = new THREE.LineBasicMaterial({
+    color: 0xFFFFFF,
+    transparent: true,
+    opacity: 0.3,
+  });
+
+  var numRuns = Math.floor(meshDesc.height / 10);
+  var runHeight = meshDesc.height / numRuns;
+
+  for (var r = 0; r < numRuns; r++) {
+    var yStart = meshDesc.y + r * runHeight;
+    var yEnd = yStart + runHeight;
+    var numSteps = 5;
+
+    var points = [];
+    for (var s = 0; s <= numSteps; s++) {
+      var t = s / numSteps;
+      points.push(new THREE.Vector3(
+        meshDesc.x + meshDesc.width * 0.2 - centerX,
+        yStart + (yEnd - yStart) * t,
+        meshDesc.z + meshDesc.depth * (0.15 + 0.7 * t) - centerZ
+      ));
+    }
+
+    var geo = new THREE.BufferGeometry().setFromPoints(points);
+    var line = new THREE.Line(geo, lineMat);
+    group.add(line);
+  }
 }
 
 function buildBuildingGroup(meshData, label) {
@@ -159,85 +334,55 @@ function buildBuildingGroup(meshData, label) {
       addEdgeLines(group, geometry, mesh.position);
     }
 
+    // Window insets on unit exterior walls
+    if (meshDesc.type === "unit" && meshDesc.windowWalls) {
+      addWindowInsets(group, meshDesc, centerX, centerZ);
+    }
+
+    // Roof parapets on top floor units
+    if (meshDesc.type === "unit" && meshDesc.isTopFloor) {
+      addRoofParapets(group, meshDesc, centerX, centerZ);
+    }
+
+    // Staircase diagonal indication
+    if (meshDesc.type === "staircase") {
+      addStairIndication(group, meshDesc, centerX, centerZ);
+    }
   }
 
-  // Add label sprite above the building
-  if (label && typeof createTextSprite === "function") {
+  // Add CSS2D label above the building
+  if (label) {
     var labelColor = label === "Current Code" ? "#E07A5A" : "#5BBF82";
-    var sprite = createTextSprite(label, labelColor);
-    sprite.position.set(0, maxY + 5, 0);
-    group.add(sprite);
+    var labelObj = createLabel(label, labelColor);
+    labelObj.position.set(0, maxY + 5, 0);
+    group.add(labelObj);
   }
 
   return group;
 }
 
-function addWindowEdges(group, meshDesc, centerX, centerZ) {
-  var edgeMaterial = new THREE.LineBasicMaterial({
-    color: MATERIAL_COLORS.windowEdge,
-    linewidth: 2,
-  });
-
-  for (var w = 0; w < meshDesc.windowWalls.length; w++) {
-    var wall = meshDesc.windowWalls[w];
-    var points = [];
-    var x = meshDesc.x - centerX;
-    var y = meshDesc.y;
-    var z = meshDesc.z - centerZ;
-    var width = meshDesc.width;
-    var height = meshDesc.height;
-    var depth = meshDesc.depth;
-
-    switch (wall) {
-      case "north":
-        points.push(new THREE.Vector3(x, y, z));
-        points.push(new THREE.Vector3(x + width, y, z));
-        points.push(new THREE.Vector3(x + width, y + height, z));
-        points.push(new THREE.Vector3(x, y + height, z));
-        points.push(new THREE.Vector3(x, y, z));
-        break;
-      case "south":
-        points.push(new THREE.Vector3(x, y, z + depth));
-        points.push(new THREE.Vector3(x + width, y, z + depth));
-        points.push(new THREE.Vector3(x + width, y + height, z + depth));
-        points.push(new THREE.Vector3(x, y + height, z + depth));
-        points.push(new THREE.Vector3(x, y, z + depth));
-        break;
-      case "east":
-        points.push(new THREE.Vector3(x + width, y, z));
-        points.push(new THREE.Vector3(x + width, y, z + depth));
-        points.push(new THREE.Vector3(x + width, y + height, z + depth));
-        points.push(new THREE.Vector3(x + width, y + height, z));
-        points.push(new THREE.Vector3(x + width, y, z));
-        break;
-      case "west":
-        points.push(new THREE.Vector3(x, y, z));
-        points.push(new THREE.Vector3(x, y, z + depth));
-        points.push(new THREE.Vector3(x, y + height, z + depth));
-        points.push(new THREE.Vector3(x, y + height, z));
-        points.push(new THREE.Vector3(x, y, z));
-        break;
-      default:
-        continue;
-    }
-
-    if (points.length > 0) {
-      var geometry = new THREE.BufferGeometry().setFromPoints(points);
-      var line = new THREE.Line(geometry, edgeMaterial);
-      group.add(line);
-    }
-  }
-}
-
 function addGroundPlane(scene, width, depth) {
   var planeSize = Math.max(width, depth) * 6;
 
-  // Shadow-only ground — invisible except where shadows fall, blends perfectly
+  // Visible dark ground surface
+  var groundGeo = new THREE.PlaneGeometry(planeSize, planeSize);
+  var groundMat = new THREE.MeshPhysicalMaterial({
+    color: 0x1a1e28,
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  var groundPlane = new THREE.Mesh(groundGeo, groundMat);
+  groundPlane.rotation.x = -Math.PI / 2;
+  groundPlane.position.y = -0.15;
+  groundPlane.receiveShadow = true;
+  scene.add(groundPlane);
+
+  // Shadow-only plane slightly above ground for softer contact shadows
   var shadowGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-  var shadowMat = new THREE.ShadowMaterial({ opacity: 0.5 });
+  var shadowMat = new THREE.ShadowMaterial({ opacity: 0.35 });
   var shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
   shadowPlane.rotation.x = -Math.PI / 2;
-  shadowPlane.position.y = -0.1;
+  shadowPlane.position.y = -0.02;
   shadowPlane.receiveShadow = true;
   scene.add(shadowPlane);
 
@@ -249,6 +394,17 @@ function addGroundPlane(scene, width, depth) {
   gridHelper.material.transparent = true;
   gridHelper.material.opacity = 0.25;
   scene.add(gridHelper);
+}
+
+function renderFrame() {
+  if (_composer) {
+    _composer.render();
+  } else if (_renderer && _scene && _camera) {
+    _renderer.render(_scene, _camera);
+  }
+  if (_labelRenderer && _scene && _camera) {
+    _labelRenderer.render(_scene, _camera);
+  }
 }
 
 function setupScene(container) {
@@ -267,29 +423,75 @@ function setupScene(container) {
 
   // Renderer (reuse if exists to avoid WebGL context leaks)
   if (!_renderer) {
-    _renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    // Disable built-in antialias since SMAA handles it via post-processing
+    _renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
     _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(_renderer.domElement);
 
     // Shadow configuration
     _renderer.shadowMap.enabled = true;
-    _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    _renderer.shadowMap.type = THREE.PCFShadowMap;
 
     // Tone mapping for cinematic color
     _renderer.toneMapping = THREE.ACESFilmicToneMapping;
     _renderer.toneMappingExposure = 1.0;
-    _renderer.outputEncoding = THREE.sRGBEncoding;
+    _renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
   _renderer.setSize(width, height);
 
+  // ── CSS2D Label Renderer ────────────────────────────────────────────────
+  if (!_labelRenderer) {
+    _labelRenderer = new CSS2DRenderer();
+    _labelRenderer.domElement.style.position = "absolute";
+    _labelRenderer.domElement.style.top = "0";
+    _labelRenderer.domElement.style.left = "0";
+    _labelRenderer.domElement.style.pointerEvents = "none";
+    container.appendChild(_labelRenderer.domElement);
+  }
+  _labelRenderer.setSize(width, height);
+
+  // ── Environment Map ─────────────────────────────────────────────────────
+  var pmremGenerator = new THREE.PMREMGenerator(_renderer);
+  var envMap = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environment = envMap;
+  scene.environmentIntensity = 0.3;
+  pmremGenerator.dispose();
+
+  // ── Post-Processing Pipeline ────────────────────────────────────────────
+  _composer = new EffectComposer(_renderer);
+
+  // 1. RenderPass — renders scene to framebuffer
+  var renderPass = new RenderPass(scene, camera);
+  _composer.addPass(renderPass);
+
+  // 2. UnrealBloomPass — very subtle warm glow
+  var bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(width, height),
+    0.15,  // strength
+    0.4,   // radius
+    0.85   // threshold
+  );
+  _composer.addPass(bloomPass);
+
+  // 3. SMAAPass — anti-aliasing (replaces built-in MSAA)
+  var smaaPass = new SMAAPass(width * _renderer.getPixelRatio(), height * _renderer.getPixelRatio());
+  _composer.addPass(smaaPass);
+
+  // 4. OutputPass — required for correct tone mapping with post-processing (must be last)
+  var outputPass = new OutputPass();
+  _composer.addPass(outputPass);
+
   // ── Lighting ──────────────────────────────────────────────────────────────
+
+  // Initialize RectAreaLight uniforms
+  RectAreaLightUniformsLib.init();
 
   // Hemisphere light: warm sky, cool ground — natural ambient
   var hemiLight = new THREE.HemisphereLight(0xF5E6D0, 0x3A4050, 0.55);
   scene.add(hemiLight);
 
-  // Key directional light (warm) with shadows
-  var keyLight = new THREE.DirectionalLight(0xFFF4E6, 0.85);
+  // Key directional light (warm) with shadows — reduced since env map compensates
+  var keyLight = new THREE.DirectionalLight(0xFFF4E6, 0.6);
   keyLight.position.set(50, 80, 60);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.width = 2048;
@@ -305,17 +507,23 @@ function setupScene(container) {
   scene.add(keyLight);
 
   // Fill light (cool) — softer, from opposite side
-  var fillLight = new THREE.DirectionalLight(0xB0C4DE, 0.3);
+  var fillLight = new THREE.DirectionalLight(0xB0C4DE, 0.2);
   fillLight.position.set(-40, 50, -30);
   scene.add(fillLight);
 
   // Rim / back light — subtle edge definition
-  var rimLight = new THREE.DirectionalLight(0xE8DCD0, 0.2);
+  var rimLight = new THREE.DirectionalLight(0xE8DCD0, 0.15);
   rimLight.position.set(-20, 30, 80);
   scene.add(rimLight);
 
+  // RectAreaLight — soft overhead architectural light
+  var rectLight = new THREE.RectAreaLight(0xFFF4E6, 2.0, 80, 80);
+  rectLight.position.set(0, 60, 0);
+  rectLight.lookAt(0, 0, 0);
+  scene.add(rectLight);
+
   // OrbitControls
-  var controls = new THREE.OrbitControls(camera, _renderer.domElement);
+  var controls = new OrbitControls(camera, _renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.screenSpacePanning = true;
@@ -334,10 +542,14 @@ function disposeScene(scene) {
       if (Array.isArray(obj.material)) {
         obj.material.forEach(function (m) {
           if (m.map) m.map.dispose();
+          if (m.clearcoatMap) m.clearcoatMap.dispose();
+          if (m.clearcoatRoughnessMap) m.clearcoatRoughnessMap.dispose();
           m.dispose();
         });
       } else {
         if (obj.material.map) obj.material.map.dispose();
+        if (obj.material.clearcoatMap) obj.material.clearcoatMap.dispose();
+        if (obj.material.clearcoatRoughnessMap) obj.material.clearcoatRoughnessMap.dispose();
         obj.material.dispose();
       }
     }
@@ -356,7 +568,7 @@ function startRenderLoop(scene, camera, controls) {
     if (!_renderLoopActive) return;
     _animationFrameId = requestAnimationFrame(animate);
     controls.update();
-    _renderer.render(scene, camera);
+    renderFrame();
   }
   animate();
 }
@@ -374,18 +586,13 @@ function onControlsInteraction(scene, camera, controls) {
   startRenderLoop(scene, camera, controls);
   _idleTimeout = setTimeout(function () {
     // Render one last frame then stop
-    if (_renderer) _renderer.render(scene, camera);
+    renderFrame();
     stopRenderLoop();
   }, 2000);
 }
 
 function renderBuildings(container, config) {
   // Check for WebGL support
-  if (typeof THREE === "undefined") {
-    container.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">3D view requires Three.js. Please check your connection.</p>';
-    return;
-  }
-
   try {
     var testCanvas = document.createElement("canvas");
     var gl = testCanvas.getContext("webgl") || testCanvas.getContext("experimental-webgl");
@@ -406,9 +613,10 @@ function renderBuildings(container, config) {
     disposeScene(_scene);
   }
 
-  // Clear material cache (sprites have unique textures)
+  // Clear material cache
   _materialCache = {};
   _edgeMaterialCache = null;
+  _windowMaterialCache = null;
 
   // Ensure container is visible and has dimensions
   container.style.display = "block";
@@ -434,7 +642,9 @@ function renderBuildings(container, config) {
       _camera.aspect = w / h;
       _camera.updateProjectionMatrix();
       _renderer.setSize(w, h);
-      _renderer.render(_scene, _camera);
+      if (_composer) _composer.setSize(w, h);
+      if (_labelRenderer) _labelRenderer.setSize(w, h);
+      renderFrame();
     }
   });
   _resizeObserver.observe(container);
@@ -454,7 +664,7 @@ function renderBuildings(container, config) {
   // Initial render burst (for smooth first interaction)
   startRenderLoop(_scene, _camera, _controls);
   _idleTimeout = setTimeout(function () {
-    if (_renderer) _renderer.render(_scene, _camera);
+    renderFrame();
     stopRenderLoop();
   }, 2000);
 }
@@ -495,8 +705,6 @@ function renderStandardBuildings(scene, camera, config) {
 
 // Tour integration
 function startTour(config) {
-  if (typeof createTourSteps !== "function" || typeof createTourState !== "function") return null;
-
   _tourState = createTourState();
   _tourState.steps = createTourSteps(config);
   _tourState.active = true;
@@ -560,19 +768,17 @@ if (typeof window !== "undefined") {
     stopRenderLoop();
     if (_resizeObserver) _resizeObserver.disconnect();
     if (_scene) disposeScene(_scene);
+    if (_composer) {
+      _composer = null;
+    }
     if (_renderer) {
       _renderer.dispose();
       _renderer = null;
     }
+    if (_labelRenderer) {
+      _labelRenderer = null;
+    }
   });
 }
 
-// Export for testing (node) and browser use
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    MATERIAL_COLORS: MATERIAL_COLORS,
-    MATERIAL_OPACITY: MATERIAL_OPACITY,
-    buildBuildingGroup: buildBuildingGroup,
-    disposeScene: disposeScene,
-  };
-}
+export { renderBuildings, startTour, goToTourStep, endTour, getViewerState, stopRenderLoop, MATERIAL_COLORS, MATERIAL_OPACITY };

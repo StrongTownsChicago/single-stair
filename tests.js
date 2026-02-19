@@ -3,6 +3,7 @@
 
 // Load source files when running in Node
 if (typeof require !== "undefined") {
+  // Plain script files (CommonJS-compatible, not ES modules)
   const _layout = require("./layout.js");
   if (_layout.generateLayout) globalThis.generateLayout = _layout.generateLayout;
   try {
@@ -19,21 +20,135 @@ if (typeof require !== "undefined") {
     if (_state.encodeConfigToHash) globalThis.encodeConfigToHash = _state.encodeConfigToHash;
     if (_state.decodeHashToConfig) globalThis.decodeHashToConfig = _state.decodeHashToConfig;
   } catch (e) {}
-  try {
-    const _mesh = require("./mesh.js");
-    if (_mesh.buildMeshData) globalThis.buildMeshData = _mesh.buildMeshData;
-  } catch (e) {}
-  try {
-    const _tour = require("./tour.js");
-    if (_tour.createTourSteps) globalThis.createTourSteps = _tour.createTourSteps;
-    if (_tour.createTourState) globalThis.createTourState = _tour.createTourState;
-    if (_tour.advanceTour) globalThis.advanceTour = _tour.advanceTour;
-    if (_tour.easeInOutCubic) globalThis.easeInOutCubic = _tour.easeInOutCubic;
-  } catch (e) {}
-  try {
-    const _viewer = require("./viewer3d.js");
-    if (_viewer.MATERIAL_COLORS) globalThis.MATERIAL_COLORS = _viewer.MATERIAL_COLORS;
-  } catch (e) {}
+
+  // ES module files: inline pure-logic duplicates for Node testing
+  // mesh.js is now an ES module — provide buildMeshData inline
+  if (typeof globalThis.buildMeshData === "undefined") {
+    var _RESIDENTIAL_FLOOR_HEIGHT = 10;
+    globalThis.buildMeshData = function buildMeshData(layout) {
+      var meshes = [];
+      var numFloors = layout.floors.length;
+      var totalBuildingHeight = numFloors * _RESIDENTIAL_FLOOR_HEIGHT;
+      for (var i = 0; i < numFloors; i++) {
+        var floor = layout.floors[i];
+        var yOffset = i * _RESIDENTIAL_FLOOR_HEIGHT;
+        var isTopFloor = i === numFloors - 1;
+        for (var u = 0; u < floor.units.length; u++) {
+          var unit = floor.units[u];
+          meshes.push({
+            type: "unit", x: unit.x, y: yOffset, z: unit.y,
+            width: unit.w, height: _RESIDENTIAL_FLOOR_HEIGHT, depth: unit.d,
+            floorLevel: i, isTopFloor: isTopFloor,
+            unitId: unit.id, unitType: unit.type, windowWalls: unit.windowWalls,
+          });
+        }
+        for (var s = 0; s < floor.staircases.length; s++) {
+          var stair = floor.staircases[s];
+          meshes.push({
+            type: "staircase", x: stair.x, y: 0, z: stair.y,
+            width: stair.w, height: totalBuildingHeight, depth: stair.d,
+            floorLevel: i, isTopFloor: false, stairType: stair.type,
+          });
+        }
+        for (var h = 0; h < floor.hallways.length; h++) {
+          var hall = floor.hallways[h];
+          meshes.push({
+            type: "hallway", x: hall.x, y: yOffset, z: hall.y,
+            width: hall.w, height: _RESIDENTIAL_FLOOR_HEIGHT, depth: hall.d,
+            floorLevel: i, isTopFloor: isTopFloor,
+          });
+        }
+        var SLAB_OVERHANG = 0.3;
+        meshes.push({
+          type: "slab", x: 0 - SLAB_OVERHANG, y: yOffset, z: 0 - SLAB_OVERHANG,
+          width: layout.lot.buildableWidth + SLAB_OVERHANG * 2,
+          height: 0.5,
+          depth: layout.lot.buildableDepth + SLAB_OVERHANG * 2,
+          floorLevel: i, isTopFloor: isTopFloor,
+        });
+      }
+      return meshes;
+    };
+  }
+
+  // tour.js is now an ES module — provide pure functions inline
+  if (typeof globalThis.createTourSteps === "undefined") {
+    globalThis.createTourSteps = function createTourSteps(config) {
+      var lot = config.lot || "single";
+      var stories = config.stories || 3;
+      var lotConfigs = {
+        single: { buildableWidth: 20, buildableDepth: 80 },
+        double: { buildableWidth: 45, buildableDepth: 80 },
+      };
+      var dims = lotConfigs[lot] || lotConfigs.single;
+      var bw = dims.buildableWidth;
+      var bd = dims.buildableDepth;
+      var totalHeight = stories * 10;
+      var scale = bw / 20;
+      var steps = [];
+      steps.push({
+        id: "lot", title: "Here's a typical Chicago lot",
+        description: bw + " feet wide, " + bd + " feet deep. After setbacks, " + bw + "x" + bd + " feet is buildable.",
+        cameraPosition: { x: 0, y: 80 * scale, z: 100 * scale },
+        cameraTarget: { x: 0, y: 0, z: 0 }, highlights: ["ground"],
+      });
+      if (stories > 2) {
+        steps.push({ id: "current-stairs", title: "Current code requires 3 stairways",
+          description: "Above the second story, each unit must access two stairways. On a standard lot, that means three shafts running the full height of the building.",
+          cameraPosition: { x: -30 * scale, y: 40 * scale, z: 60 * scale },
+          cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["staircases-current"],
+        });
+        steps.push({ id: "current-units", title: "What's left for apartments",
+          description: "Two units per floor in the remaining space after three stairways and connecting hallways.",
+          cameraPosition: { x: -40 * scale, y: 25 * scale, z: 50 * scale },
+          cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["units-current"],
+        });
+        steps.push({ id: "reform", title: "With single stair reform",
+          description: "One stairway plus sprinklers. Larger units with more bedrooms, the kind of family-friendly apartments Chicago needs.",
+          cameraPosition: { x: 40 * scale, y: 25 * scale, z: 50 * scale },
+          cameraTarget: { x: bw / 2 + bw * 0.75, y: totalHeight / 2, z: 0 }, highlights: ["units-reform"],
+        });
+        steps.push({ id: "comparison", title: "Side by side",
+          description: "Same lot, same safety with sprinklers, but significantly more livable space per unit.",
+          cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
+          cameraTarget: { x: 0, y: totalHeight / 2, z: 0 }, highlights: ["all"],
+        });
+      } else {
+        steps.push({ id: "current-stairs", title: "2-story buildings already qualify",
+          description: "Chicago's code currently allows second-story units to access a single stairway.",
+          cameraPosition: { x: -30 * scale, y: 30 * scale, z: 60 * scale },
+          cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["staircases-current"],
+        });
+        steps.push({ id: "comparison", title: "Same layout at 2 stories",
+          description: "The impact of reform shows up at 3+ stories, where current code requires three stairways on a standard lot.",
+          cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
+          cameraTarget: { x: 0, y: totalHeight / 2, z: 0 }, highlights: ["all"],
+        });
+      }
+      return steps;
+    };
+    globalThis.createTourState = function () {
+      return { active: false, currentStep: 0, steps: [], animating: false };
+    };
+    globalThis.advanceTour = function (tourState, direction) {
+      if (tourState.animating) return tourState;
+      var newStep = tourState.currentStep + direction;
+      if (newStep < 0 || newStep >= tourState.steps.length) return tourState;
+      tourState.currentStep = newStep;
+      return tourState;
+    };
+    globalThis.easeInOutCubic = function (t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+  }
+
+  // viewer3d.js is now an ES module — provide MATERIAL_COLORS inline
+  if (typeof globalThis.MATERIAL_COLORS === "undefined") {
+    globalThis.MATERIAL_COLORS = {
+      unit: 0xF0EBE1, staircase: 0xBF5B4B, hallway: 0xC4B5A5,
+      slab: 0xCCC7BF, windowEdge: 0xD4A843, edge: 0x6E6A64,
+    };
+  }
 }
 
 let _passed = 0,

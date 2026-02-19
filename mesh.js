@@ -1,19 +1,21 @@
 // Single Stair Visualizer — 3D Mesh Data
 // Converts layout engine output to mesh descriptors for Three.js
 
-const RESIDENTIAL_FLOOR_HEIGHT = 10;
+var RESIDENTIAL_FLOOR_HEIGHT = 10;
 
 function buildMeshData(layout) {
-  const meshes = [];
-  const numFloors = layout.floors.length;
-  const totalBuildingHeight = numFloors * RESIDENTIAL_FLOOR_HEIGHT;
+  var meshes = [];
+  var numFloors = layout.floors.length;
+  var totalBuildingHeight = numFloors * RESIDENTIAL_FLOOR_HEIGHT;
 
-  for (let i = 0; i < numFloors; i++) {
-    const floor = layout.floors[i];
-    const yOffset = i * RESIDENTIAL_FLOOR_HEIGHT;
+  for (var i = 0; i < numFloors; i++) {
+    var floor = layout.floors[i];
+    var yOffset = i * RESIDENTIAL_FLOOR_HEIGHT;
+    var isTopFloor = i === numFloors - 1;
 
     // Units
-    for (const unit of floor.units) {
+    for (var u = 0; u < floor.units.length; u++) {
+      var unit = floor.units[u];
       meshes.push({
         type: "unit",
         x: unit.x,
@@ -23,6 +25,7 @@ function buildMeshData(layout) {
         height: RESIDENTIAL_FLOOR_HEIGHT,
         depth: unit.d,
         floorLevel: i,
+        isTopFloor: isTopFloor,
         unitId: unit.id,
         unitType: unit.type,
         windowWalls: unit.windowWalls,
@@ -30,7 +33,8 @@ function buildMeshData(layout) {
     }
 
     // Staircases (each spans full building height)
-    for (const stair of floor.staircases) {
+    for (var s = 0; s < floor.staircases.length; s++) {
+      var stair = floor.staircases[s];
       meshes.push({
         type: "staircase",
         x: stair.x,
@@ -40,12 +44,14 @@ function buildMeshData(layout) {
         height: totalBuildingHeight,
         depth: stair.d,
         floorLevel: i,
+        isTopFloor: false,
         stairType: stair.type,
       });
     }
 
     // Hallways
-    for (const hall of floor.hallways) {
+    for (var h = 0; h < floor.hallways.length; h++) {
+      var hall = floor.hallways[h];
       meshes.push({
         type: "hallway",
         x: hall.x,
@@ -55,26 +61,26 @@ function buildMeshData(layout) {
         height: RESIDENTIAL_FLOOR_HEIGHT,
         depth: hall.d,
         floorLevel: i,
+        isTopFloor: isTopFloor,
       });
     }
 
-    // Floor slab
+    // Floor slab (with overhang for shadow lines)
+    var SLAB_OVERHANG = 0.3;
     meshes.push({
       type: "slab",
-      x: 0,
+      x: 0 - SLAB_OVERHANG,
       y: yOffset,
-      z: 0,
-      width: layout.lot.buildableWidth,
+      z: 0 - SLAB_OVERHANG,
+      width: layout.lot.buildableWidth + SLAB_OVERHANG * 2,
       height: 0.5,
-      depth: layout.lot.buildableDepth,
+      depth: layout.lot.buildableDepth + SLAB_OVERHANG * 2,
       floorLevel: i,
+      isTopFloor: isTopFloor,
     });
   }
 
   return meshes;
 }
 
-// Make available globally (browser) and for Node require
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { buildMeshData };
-}
+export { buildMeshData, RESIDENTIAL_FLOOR_HEIGHT };

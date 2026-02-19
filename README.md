@@ -16,7 +16,7 @@ The visualizer renders side-by-side 2D floor plans and a 3D building view compar
 ## Features
 
 - **2D Floor Plans**: Horizontal SVG floor plans with room subdivisions (Living/Kitchen, Bedrooms, Bath), staircase and hallway overlays, and hover tooltips
-- **3D Building View**: Interactive Three.js model with orbit controls, floor slabs, and window indicators
+- **3D Building View**: Interactive Three.js r183 model with PBR materials, post-processing (bloom, SMAA), window insets, roof parapets, and environment lighting
 - **Guided Tour**: Step-through camera tour for presentations
 - **Configurable**: Toggle lot type (single 25x125 / double 50x125), stories (2-4), and floor selection
 - **Live Stats**: Per-floor and whole-building comparison tables with delta highlights
@@ -25,19 +25,20 @@ The visualizer renders side-by-side 2D floor plans and a 3D building view compar
 
 ## Architecture
 
-Pure client-side JavaScript, no build step or dependencies beyond CDN-loaded Three.js.
+Pure client-side JavaScript, no build step or npm dependencies. Three.js r183 loaded via CDN import map (ES modules).
 
 ```
-index.html        Main page — markup, CSS, and app controller
+index.html        Main page — markup, CSS, Three.js import map
+app.js            App controller (ES module) — event handlers, DOM updates, initialization
 layout.js         Layout engine — generates floor plan data from configuration
 renderer.js       SVG renderer — converts layout data to horizontal SVG floor plans
 stats.js          Stats computation — per-floor and whole-building comparisons
 state.js          URL hash encoding/decoding for shareable configuration
-mesh.js           3D mesh data — converts layout output to Three.js mesh descriptors
-viewer3d.js       3D viewer — Three.js scene, materials, camera, labels
-tour.js           Guided tour — step-based camera animation for presentations
+mesh.js           3D mesh data (ES module) — converts layout output to Three.js mesh descriptors
+viewer3d.js       3D viewer (ES module) — Three.js scene, PBR materials, post-processing, CSS2D labels
+tour.js           Guided tour (ES module) — step-based camera animation for presentations
 tests.js          Test suite — layout, renderer, stats, and state tests
-test-runner.html  Browser-based test runner
+test-runner.html  Browser-based test runner (ES module aware)
 run-tests.sh      Node.js test runner script
 ```
 
@@ -58,7 +59,14 @@ The layout engine produces data in a coordinate system where X = lot width and Y
 
 ## Running Locally
 
-Open `index.html` in a browser. No server required.
+Serve the project root with any local HTTP server (ES modules require it):
+
+```bash
+python3 -m http.server 8000
+# or: npx serve .
+```
+
+Then open `http://localhost:8000`.
 
 To run tests:
 

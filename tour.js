@@ -145,7 +145,4 @@ function animateCamera(camera, controls, fromPos, toPos, fromTarget, toTarget, d
   requestAnimationFrame(step);
 }
 
-// Make available globally (browser) and for Node require
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = { createTourSteps, createTourState, advanceTour, easeInOutCubic };
-}
+export { createTourSteps, createTourState, advanceTour, easeInOutCubic, animateCamera };
