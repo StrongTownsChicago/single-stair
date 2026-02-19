@@ -114,9 +114,9 @@ function renderFloorPlanSVG(layout, floorIndex) {
     // Unit label — positioned near top edge as header (swapped coordinates)
     const cy = unit.y + unit.d / 2;
     const labelText = `Unit ${unit.id} · ${Math.round(unit.sqft)} sf · ${unit.bedrooms} BR`;
-    const fontSize = Math.min(unit.d * 0.08, (unit.w * 0.9) / (labelText.length * 0.55));
-    const cx = unit.x + fontSize * 1.5;
-    svg += `<text x="${cy}" y="${cx}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="#2C2C35" font-family="'Outfit', sans-serif" data-type="unit-label">${labelText}</text>`;
+    const fontSize = Math.min(unit.d * 0.06, (unit.w * 0.9) / (labelText.length * 0.55)) * 0.85;
+    const cx = unit.x + fontSize * 1.1;
+    svg += `<text x="${cy}" y="${cx}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="#5A574F" font-family="'Outfit', sans-serif" font-weight="600" data-type="unit-label">${labelText}</text>`;
 
     // Room subdivisions
     svg += renderRoomLayout(unit);
