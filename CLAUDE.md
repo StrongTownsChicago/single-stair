@@ -28,7 +28,7 @@ The test suite (`tests.js`) uses a custom zero-dependency assertion framework (a
 
 ## Architecture
 
-Pure client-side JavaScript with no npm dependencies. Three.js r183 loaded via CDN import map (ES modules).
+Pure client-side JavaScript with no npm dependencies. Three.js r183 loaded via CDN import map (ES modules). Full Three.js API documentation is available at `docs/threejs/threejs_full_llms.txt` for reference when working on the 3D viewer.
 
 **All application code lives in the root directory** — there are no src/ or lib/ directories:
 
