@@ -182,7 +182,7 @@ function getGlassMaterial() {
     attenuationColor: new THREE.Color(0xFFE8D0),
     attenuationDistance: 2.0,
     emissive: new THREE.Color(0xFFD080),
-    emissiveIntensity: 0.4,
+    emissiveIntensity: 0.15,
     emissiveMap: glowMap,
     specularIntensity: 1.0,
     specularColor: new THREE.Color(0xFFFFFF),
@@ -954,9 +954,9 @@ function setupScene(container) {
   // 3. UnrealBloomPass - enhanced for window glow
   var bloomPass = new UnrealBloomPass(
     new THREE.Vector2(width, height),
-    0.3,   // strength (up from 0.15)
-    0.6,   // radius (up from 0.4)
-    0.7    // threshold (down from 0.85)
+    0.12,  // strength
+    0.4,   // radius
+    0.9    // threshold
   );
   _composer.addPass(bloomPass);
 
@@ -982,7 +982,7 @@ function setupScene(container) {
   scene.add(hemiLight);
 
   // Key directional light - golden hour
-  var keyLight = new THREE.DirectionalLight(0xFFD49B, 1.2);
+  var keyLight = new THREE.DirectionalLight(0xFFD49B, 0.9);
   // Align with sky sun position
   keyLight.position.set(sunPosition.x * 80, sunPosition.y * 80, sunPosition.z * 80);
   keyLight.castShadow = true;
@@ -1009,7 +1009,7 @@ function setupScene(container) {
   scene.add(rimLight);
 
   // RectAreaLight - reduced intensity (sky provides more ambient now)
-  var rectLight = new THREE.RectAreaLight(0xFFF4E6, 1.0, 80, 80);
+  var rectLight = new THREE.RectAreaLight(0xFFF4E6, 0.35, 80, 80);
   rectLight.position.set(0, 60, 0);
   rectLight.lookAt(0, 0, 0);
   scene.add(rectLight);
