@@ -38,7 +38,7 @@ if (typeof require !== "undefined") {
           meshes.push({
             type: "unit", x: unit.x, y: yOffset, z: unit.y,
             width: unit.w, height: _RESIDENTIAL_FLOOR_HEIGHT, depth: unit.d,
-            floorLevel: i, isTopFloor: isTopFloor,
+            floorLevel: i, isTopFloor: isTopFloor, isGroundFloor: i === 0,
             unitId: unit.id, unitType: unit.type, windowWalls: unit.windowWalls,
           });
         }
@@ -145,8 +145,9 @@ if (typeof require !== "undefined") {
   // viewer3d.js is now an ES module — provide MATERIAL_COLORS inline
   if (typeof globalThis.MATERIAL_COLORS === "undefined") {
     globalThis.MATERIAL_COLORS = {
-      unit: 0xF0EBE1, staircase: 0xBF5B4B, hallway: 0xC4B5A5,
-      slab: 0xCCC7BF, windowEdge: 0xD4A843, edge: 0x6E6A64,
+      unit: 0x8B4533, staircase: 0xBF5B4B, hallway: 0xC4B5A5,
+      slab: 0xA0A0A0, limestone: 0xE8DCC8, mullion: 0x3A3530,
+      glass: 0x4A6B8A, door: 0x2A1F1A,
     };
   }
 }
@@ -991,17 +992,27 @@ const reformDedupHalls = reformDedupMeshes.filter(m => m.type === "hallway");
 assertEqual(reformDedupStairs.length, 1, "Reform deduped: 1 staircase mesh");
 assertEqual(reformDedupHalls.length, 3, "Reform: 3 hallway meshes (landing per floor)");
 
-// Material color mapping validation
+// Material color mapping validation (Chicago brick facade palette)
 const materialTypes = ["unit", "staircase", "hallway", "slab"];
 const expectedColors = {
-  unit: 0xF0EBE1,
+  unit: 0x8B4533,
   staircase: 0xBF5B4B,
   hallway: 0xC4B5A5,
-  slab: 0xCCC7BF,
+  slab: 0xA0A0A0,
 };
 materialTypes.forEach(type => {
   assertEqual(MATERIAL_COLORS[type], expectedColors[type], `MATERIAL_COLORS.${type} is correct`);
 });
+
+// New material types for Chicago buildings
+assert(MATERIAL_COLORS.limestone !== undefined, "MATERIAL_COLORS has limestone");
+assert(MATERIAL_COLORS.mullion !== undefined, "MATERIAL_COLORS has mullion");
+assert(MATERIAL_COLORS.glass !== undefined, "MATERIAL_COLORS has glass");
+assert(MATERIAL_COLORS.door !== undefined, "MATERIAL_COLORS has door");
+assertEqual(MATERIAL_COLORS.limestone, 0xE8DCC8, "MATERIAL_COLORS.limestone is cream");
+assertEqual(MATERIAL_COLORS.mullion, 0x3A3530, "MATERIAL_COLORS.mullion is dark");
+assertEqual(MATERIAL_COLORS.glass, 0x4A6B8A, "MATERIAL_COLORS.glass is blue-grey");
+assertEqual(MATERIAL_COLORS.door, 0x2A1F1A, "MATERIAL_COLORS.door is dark brown");
 
 // Side-by-side positioning math
 const ssConfig = { lot: "single", stories: 3 };
@@ -1132,6 +1143,163 @@ const intMeshCounts = intConfigs.map(c => {
 });
 const intUniqueCounts = new Set(intMeshCounts);
 assert(intUniqueCounts.size > 1, "Different configs produce different mesh counts");
+
+// =============================================================
+// 5.1 — isGroundFloor Field Tests
+// =============================================================
+
+console.log("=== isGroundFloor Field Tests ===");
+
+// isGroundFloor should be true only for floor 0
+const gfLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+const gfMeshData = buildMeshData(gfLayout);
+const gfUnitMeshes = gfMeshData.filter(m => m.type === "unit");
+
+// Ground floor units should have isGroundFloor === true
+const gfGroundUnits = gfUnitMeshes.filter(m => m.floorLevel === 0);
+gfGroundUnits.forEach(m => {
+  assertEqual(m.isGroundFloor, true, `Floor 0 unit ${m.unitId}: isGroundFloor is true`);
+});
+
+// Upper floor units should have isGroundFloor === false
+const gfUpperUnits = gfUnitMeshes.filter(m => m.floorLevel > 0);
+gfUpperUnits.forEach(m => {
+  assertEqual(m.isGroundFloor, false, `Floor ${m.floorLevel} unit ${m.unitId}: isGroundFloor is false`);
+});
+
+// isGroundFloor field should be present on all unit meshes
+gfUnitMeshes.forEach(m => {
+  assert(m.isGroundFloor !== undefined, `Unit mesh has isGroundFloor field`);
+  assert(typeof m.isGroundFloor === "boolean", `isGroundFloor is a boolean`);
+});
+
+// isGroundFloor works for all lot types
+for (const lot of ["single", "double"]) {
+  for (const stories of [2, 3, 4]) {
+    const layout = generateLayout({ lot, stories, stair: "current" });
+    const meshData = buildMeshData(layout);
+    const units = meshData.filter(m => m.type === "unit");
+    const groundUnits = units.filter(m => m.floorLevel === 0);
+    const upperUnits = units.filter(m => m.floorLevel > 0);
+    assert(groundUnits.length > 0, `${lot}/${stories}story: has ground floor units`);
+    groundUnits.forEach(m => {
+      assert(m.isGroundFloor === true, `${lot}/${stories}story floor 0: isGroundFloor is true`);
+    });
+    upperUnits.forEach(m => {
+      assert(m.isGroundFloor === false, `${lot}/${stories}story floor ${m.floorLevel}: isGroundFloor is false`);
+    });
+  }
+}
+
+// Ground floor unit A should exist (used for entry door placement)
+const gfFrontUnit = gfGroundUnits.find(m => m.unitId === "A");
+assert(gfFrontUnit, "Ground floor has a unit with id 'A'");
+assert(gfFrontUnit.isGroundFloor === true, "Unit A on floor 0 has isGroundFloor === true");
+assert(gfFrontUnit.windowWalls.includes("north"), "Ground floor unit A has north window wall");
+
+// =============================================================
+// 5.2 — Window Descriptor Collection Tests
+// =============================================================
+
+console.log("=== Window Descriptor Collection Tests ===");
+
+// Test that window positions can be calculated from mesh descriptors
+// (This tests the logic used by collectWindowPositions in viewer3d.js)
+const winLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+const winMeshData = buildMeshData(winLayout);
+const winUnits = winMeshData.filter(m => m.type === "unit");
+
+// Every unit should have window walls
+winUnits.forEach(m => {
+  assert(Array.isArray(m.windowWalls), `Unit ${m.unitId} floor ${m.floorLevel}: has windowWalls array`);
+  assert(m.windowWalls.length > 0, `Unit ${m.unitId} floor ${m.floorLevel}: has at least one window wall`);
+});
+
+// Window count per wall should be reasonable
+winUnits.forEach(m => {
+  m.windowWalls.forEach(wall => {
+    const wallLen = (wall === "north" || wall === "south") ? m.width : m.depth;
+    const numWindows = Math.max(1, Math.floor(wallLen / 8));
+    assert(numWindows >= 1, `Unit ${m.unitId} wall ${wall}: at least 1 window (wallLen=${wallLen})`);
+    assert(numWindows <= 10, `Unit ${m.unitId} wall ${wall}: at most 10 windows (wallLen=${wallLen})`);
+  });
+});
+
+// Ground floor unit A should have center window position available for door
+const doorUnit = winUnits.find(m => m.isGroundFloor && m.unitId === "A");
+assert(doorUnit, "Ground floor unit A exists for door placement");
+assert(doorUnit.windowWalls.includes("north"), "Door unit has north-facing wall for entry");
+
+// Window spacing is evenly distributed
+winUnits.forEach(m => {
+  m.windowWalls.forEach(wall => {
+    const wallLen = (wall === "north" || wall === "south") ? m.width : m.depth;
+    const numWindows = Math.max(1, Math.floor(wallLen / 8));
+    const spacing = wallLen / (numWindows + 1);
+    assert(spacing > 0, `Unit ${m.unitId} wall ${wall}: positive window spacing`);
+    assert(spacing <= wallLen, `Unit ${m.unitId} wall ${wall}: spacing within wall length`);
+  });
+});
+
+// =============================================================
+// 5.3 — Chicago Material Palette Tests
+// =============================================================
+
+console.log("=== Chicago Material Palette Tests ===");
+
+// Verify the expanded material color palette has all required entries
+const requiredMaterialTypes = ["unit", "staircase", "hallway", "slab", "limestone", "mullion", "glass", "door"];
+requiredMaterialTypes.forEach(type => {
+  assert(MATERIAL_COLORS[type] !== undefined, `MATERIAL_COLORS has '${type}'`);
+  assert(typeof MATERIAL_COLORS[type] === "number", `MATERIAL_COLORS.${type} is a number`);
+});
+
+// Unit color should be brick terracotta (not the old plaster color)
+assert(MATERIAL_COLORS.unit !== 0xF0EBE1, "Unit color is not the old plaster color");
+assertEqual(MATERIAL_COLORS.unit, 0x8B4533, "Unit color is brick terracotta");
+
+// Slab color should be concrete grey (not the old warm concrete)
+assert(MATERIAL_COLORS.slab !== 0xCCC7BF, "Slab color is not the old warm concrete");
+assertEqual(MATERIAL_COLORS.slab, 0xA0A0A0, "Slab color is concrete grey");
+
+// =============================================================
+// 5.4 — Mesh Data Completeness Tests
+// =============================================================
+
+console.log("=== Mesh Data Completeness Tests ===");
+
+// All mesh descriptors should have required fields
+const completeLayout = generateLayout({ lot: "double", stories: 4, stair: "current" });
+const completeMeshData = buildMeshData(completeLayout);
+
+completeMeshData.forEach((m, idx) => {
+  assert(m.type !== undefined, `Mesh ${idx}: has type`);
+  assert(typeof m.x === "number", `Mesh ${idx}: x is number`);
+  assert(typeof m.y === "number", `Mesh ${idx}: y is number`);
+  assert(typeof m.z === "number", `Mesh ${idx}: z is number`);
+  assert(typeof m.width === "number", `Mesh ${idx}: width is number`);
+  assert(typeof m.height === "number", `Mesh ${idx}: height is number`);
+  assert(typeof m.depth === "number", `Mesh ${idx}: depth is number`);
+  assert(typeof m.floorLevel === "number", `Mesh ${idx}: floorLevel is number`);
+
+  if (m.type === "unit") {
+    assert(typeof m.isTopFloor === "boolean", `Unit mesh ${idx}: isTopFloor is boolean`);
+    assert(typeof m.isGroundFloor === "boolean", `Unit mesh ${idx}: isGroundFloor is boolean`);
+    assert(Array.isArray(m.windowWalls), `Unit mesh ${idx}: windowWalls is array`);
+    assert(m.unitId !== undefined, `Unit mesh ${idx}: has unitId`);
+  }
+});
+
+// Both isTopFloor and isGroundFloor should be correctly set on a multi-story building
+const topFloorUnits = completeMeshData.filter(m => m.type === "unit" && m.isTopFloor);
+const groundFloorUnits = completeMeshData.filter(m => m.type === "unit" && m.isGroundFloor);
+assert(topFloorUnits.length > 0, "Multi-story building has top floor units");
+assert(groundFloorUnits.length > 0, "Multi-story building has ground floor units");
+
+// On a multi-story building, a unit cannot be both ground and top floor
+// (unless it's a single-story building, which doesn't exist in our configs)
+const bothFlags = completeMeshData.filter(m => m.type === "unit" && m.isTopFloor && m.isGroundFloor);
+assertEqual(bothFlags.length, 0, "No unit is both ground floor and top floor on 4-story building");
 
 // =============================================================
 

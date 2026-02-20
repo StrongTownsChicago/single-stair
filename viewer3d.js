@@ -1,6 +1,8 @@
 // Single Stair Visualizer -- 3D Viewer
 // Three.js scene management, building construction, materials, labels
 // Post-processing, physical materials, geometry detail, CSS2D labels
+// Photorealistic Chicago buildings: brick facades, limestone trim, physical glass,
+// golden-hour sky, GTAO, film grain, InstancedMesh windows
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -9,11 +11,16 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { Sky } from 'three/addons/objects/Sky.js';
+import { GroundedSkybox } from 'three/addons/objects/GroundedSkybox.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildMeshData } from './mesh.js';
 import { createTourSteps, createTourState, advanceTour, animateCamera } from './tour.js';
+import { generateBrickTextures, generateLimestoneTextures, generateConcreteTextures, generateInteriorGlowMap, disposeTextures } from './textures.js';
 
 // Module-level state (reused across re-renders to avoid WebGL context leaks)
 var _renderer = null;
@@ -27,16 +34,18 @@ var _idleTimeout = null;
 var _resizeObserver = null;
 var _animationFrameId = null;
 var _tourState = null;
+var _gtaoPass = null;
 
 // ── Architectural color palette ─────────────────────────────────────────────
 var MATERIAL_COLORS = {
-  unit: 0xF0EBE1,        // Warm plaster / limestone
+  unit: 0x8B4533,        // Brick terracotta (base, overridden by texture)
   staircase: 0xBF5B4B,   // Muted terracotta
   hallway: 0xC4B5A5,     // Warm taupe
-  slab: 0xCCC7BF,        // Concrete
-  windowEdge: 0xD4A843,  // Warm gold
-  edge: 0x6E6A64,        // Architectural edge lines
-  window: 0x4A6B8A,      // Glass blue-grey
+  slab: 0xA0A0A0,        // Concrete grey
+  limestone: 0xE8DCC8,   // Cream limestone
+  mullion: 0x3A3530,     // Dark window frame
+  glass: 0x4A6B8A,       // Glass blue-grey
+  door: 0x2A1F1A,        // Dark door
 };
 
 var MATERIAL_OPACITY = {
@@ -47,26 +56,65 @@ var MATERIAL_OPACITY = {
 };
 
 var MATERIAL_ROUGHNESS = {
-  unit: 0.85,
+  unit: 0.80,
   staircase: 0.72,
   hallway: 0.90,
-  slab: 0.95,
+  slab: 0.92,
 };
 
 // Material cache to reduce draw calls
 var _materialCache = {};
-var _edgeMaterialCache = null;
-var _windowMaterialCache = null;
+var _brickMaterialCache = null;
+var _glassMaterialCache = null;
+var _limestoneMaterialCache = null;
+var _concreteMaterialCache = null;
+var _mullionMaterialCache = null;
+var _doorMaterialCache = null;
+
+// ── UV Scaling ──────────────────────────────────────────────────────────────
+
+function setWorldSpaceUVs(geometry, width, height, depth, texelScale) {
+  var uv = geometry.getAttribute('uv');
+  var pos = geometry.getAttribute('position');
+  var normal = geometry.getAttribute('normal');
+
+  for (var i = 0; i < uv.count; i++) {
+    var nx = Math.abs(normal.getX(i));
+    var ny = Math.abs(normal.getY(i));
+
+    if (nx > 0.5) {
+      // East/West faces: map Z -> U, Y -> V
+      uv.setXY(i,
+        (pos.getZ(i) + depth * 0.5) * texelScale,
+        (pos.getY(i) + height * 0.5) * texelScale
+      );
+    } else if (ny > 0.5) {
+      // Top/Bottom faces: map X -> U, Z -> V
+      uv.setXY(i,
+        (pos.getX(i) + width * 0.5) * texelScale,
+        (pos.getZ(i) + depth * 0.5) * texelScale
+      );
+    } else {
+      // North/South faces: map X -> U, Y -> V
+      uv.setXY(i,
+        (pos.getX(i) + width * 0.5) * texelScale,
+        (pos.getY(i) + height * 0.5) * texelScale
+      );
+    }
+  }
+  uv.needsUpdate = true;
+}
+
+// ── Material Getters ────────────────────────────────────────────────────────
 
 function getMaterial(type) {
   if (_materialCache[type]) return _materialCache[type];
 
-  var color = MATERIAL_COLORS[type] || 0xF0EBE1;
+  var color = MATERIAL_COLORS[type] || 0xC4B5A5;
   var opacity = MATERIAL_OPACITY[type] || 1.0;
   var roughness = MATERIAL_ROUGHNESS[type] || 0.8;
   var transparent = opacity < 1.0;
 
-  // Physical materials with clearcoat for architectural sheen
   var matProps = {
     color: color,
     roughness: roughness,
@@ -75,25 +123,16 @@ function getMaterial(type) {
     opacity: opacity,
   };
 
-  if (type === "unit") {
-    matProps.clearcoat = 0.05;
-    matProps.clearcoatRoughness = 0.4;
-    matProps.envMapIntensity = 0.3;
-  } else if (type === "staircase") {
+  if (type === "staircase") {
     matProps.clearcoat = 0.1;
     matProps.clearcoatRoughness = 0.3;
     matProps.envMapIntensity = 0.3;
   } else if (type === "hallway") {
     matProps.envMapIntensity = 0.2;
-  } else if (type === "slab") {
-    matProps.clearcoat = 0.02;
-    matProps.clearcoatRoughness = 0.8;
-    matProps.envMapIntensity = 0.2;
   }
 
   var mat = new THREE.MeshPhysicalMaterial(matProps);
 
-  // Prevent z-fighting where staircase overlaps unit geometry
   if (type === "staircase") {
     mat.polygonOffset = true;
     mat.polygonOffsetFactor = -1;
@@ -104,35 +143,123 @@ function getMaterial(type) {
   return mat;
 }
 
-function getWindowMaterial() {
-  if (_windowMaterialCache) return _windowMaterialCache;
-  _windowMaterialCache = new THREE.MeshPhysicalMaterial({
-    color: MATERIAL_COLORS.window,
-    roughness: 0.1,
-    metalness: 0.3,
-    envMapIntensity: 0.8,
-    transparent: true,
-    opacity: 0.7,
+function getBrickMaterial() {
+  if (_brickMaterialCache) return _brickMaterialCache;
+
+  var brickTex = generateBrickTextures();
+  _brickMaterialCache = new THREE.MeshPhysicalMaterial({
+    map: brickTex.map,
+    normalMap: brickTex.normalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    roughnessMap: brickTex.roughnessMap,
+    roughness: 0.8,
+    aoMap: brickTex.aoMap,
+    aoMapIntensity: 0.6,
+    metalness: 0.0,
+    sheen: 0.15,
+    sheenColor: new THREE.Color(0x8B4533),
+    sheenRoughness: 0.8,
+    specularIntensity: 0.3,
+    specularColor: new THREE.Color(0xCCC0B0),
+    envMapIntensity: 0.25,
   });
-  return _windowMaterialCache;
+  // aoMap reads from uv channel 0
+  _brickMaterialCache.aoMap.channel = 0;
+
+  return _brickMaterialCache;
 }
 
-function getEdgeMaterial() {
-  if (_edgeMaterialCache) return _edgeMaterialCache;
-  _edgeMaterialCache = new THREE.LineBasicMaterial({
-    color: MATERIAL_COLORS.edge,
-    transparent: true,
-    opacity: 0.45,
+function getGlassMaterial() {
+  if (_glassMaterialCache) return _glassMaterialCache;
+
+  var glowMap = generateInteriorGlowMap();
+  _glassMaterialCache = new THREE.MeshPhysicalMaterial({
+    transmission: 0.85,
+    thickness: 0.5,
+    ior: 1.5,
+    roughness: 0.05,
+    metalness: 0.0,
+    attenuationColor: new THREE.Color(0xFFE8D0),
+    attenuationDistance: 2.0,
+    emissive: new THREE.Color(0xFFD080),
+    emissiveIntensity: 0.4,
+    emissiveMap: glowMap,
+    specularIntensity: 1.0,
+    specularColor: new THREE.Color(0xFFFFFF),
+    envMapIntensity: 1.0,
+    transparent: false,
+    side: THREE.FrontSide,
   });
-  return _edgeMaterialCache;
+
+  return _glassMaterialCache;
 }
 
-function addEdgeLines(group, geometry, position) {
-  var edgesGeo = new THREE.EdgesGeometry(geometry);
-  var edgeLines = new THREE.LineSegments(edgesGeo, getEdgeMaterial());
-  edgeLines.position.copy(position);
-  group.add(edgeLines);
+function getLimestoneMaterial() {
+  if (_limestoneMaterialCache) return _limestoneMaterialCache;
+
+  var limeTex = generateLimestoneTextures();
+  _limestoneMaterialCache = new THREE.MeshPhysicalMaterial({
+    map: limeTex.map,
+    normalMap: limeTex.normalMap,
+    normalScale: new THREE.Vector2(0.3, 0.3),
+    roughnessMap: limeTex.roughnessMap,
+    roughness: 0.55,
+    metalness: 0.0,
+    specularIntensity: 0.5,
+    specularColor: new THREE.Color(0xFFF8F0),
+    envMapIntensity: 0.4,
+    clearcoat: 0.05,
+    clearcoatRoughness: 0.6,
+    color: new THREE.Color(0xE8DCC8),
+  });
+
+  return _limestoneMaterialCache;
 }
+
+function getConcreteMaterial() {
+  if (_concreteMaterialCache) return _concreteMaterialCache;
+
+  var concTex = generateConcreteTextures();
+  _concreteMaterialCache = new THREE.MeshPhysicalMaterial({
+    map: concTex.map,
+    normalMap: concTex.normalMap,
+    normalScale: new THREE.Vector2(0.4, 0.4),
+    roughnessMap: concTex.roughnessMap,
+    roughness: 0.92,
+    metalness: 0.0,
+    envMapIntensity: 0.15,
+    color: new THREE.Color(0xA0A0A0),
+  });
+
+  return _concreteMaterialCache;
+}
+
+function getMullionMaterial() {
+  if (_mullionMaterialCache) return _mullionMaterialCache;
+
+  _mullionMaterialCache = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0x3A3530),
+    roughness: 0.7,
+    metalness: 0.1,
+    envMapIntensity: 0.2,
+  });
+
+  return _mullionMaterialCache;
+}
+
+function getDoorMaterial() {
+  if (_doorMaterialCache) return _doorMaterialCache;
+
+  _doorMaterialCache = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0x2A1F1A),
+    roughness: 0.4,
+    metalness: 0.1,
+  });
+
+  return _doorMaterialCache;
+}
+
+// ── Labels ──────────────────────────────────────────────────────────────────
 
 function createLabel(text, color) {
   var div = document.createElement("div");
@@ -142,37 +269,24 @@ function createLabel(text, color) {
   return label;
 }
 
-function addWindowInsets(group, meshDesc, centerX, centerZ) {
+// ── Window System (InstancedMesh) ───────────────────────────────────────────
+
+function collectWindowPositions(windowDescs, meshDesc, centerX, centerZ) {
   if (!meshDesc.windowWalls || meshDesc.windowWalls.length === 0) return;
 
-  var winMat = getWindowMaterial();
-  var INSET = 0.15;
+  var INSET = 0.2;
   var WIN_W = 2.5;
-  var WIN_H = 4;
+  var WIN_H = 4.0;
   var WIN_D = 0.3;
   var yBase = meshDesc.y + (meshDesc.height - WIN_H) / 2;
 
   for (var w = 0; w < meshDesc.windowWalls.length; w++) {
     var wall = meshDesc.windowWalls[w];
-    var wallLen, numWindows;
-
-    if (wall === "north" || wall === "south") {
-      wallLen = meshDesc.width;
-    } else {
-      wallLen = meshDesc.depth;
-    }
-
-    numWindows = Math.max(1, Math.floor(wallLen / 8));
+    var wallLen = (wall === "north" || wall === "south") ? meshDesc.width : meshDesc.depth;
+    var numWindows = Math.max(1, Math.floor(wallLen / 8));
     var spacing = wallLen / (numWindows + 1);
 
     for (var n = 0; n < numWindows; n++) {
-      var winGeo = new THREE.BoxGeometry(
-        (wall === "east" || wall === "west") ? WIN_D : WIN_W,
-        WIN_H,
-        (wall === "north" || wall === "south") ? WIN_D : WIN_W
-      );
-      var winMesh = new THREE.Mesh(winGeo, winMat);
-
       var offset = spacing * (n + 1);
       var px, py, pz;
       py = yBase + WIN_H / 2;
@@ -193,16 +307,235 @@ function addWindowInsets(group, meshDesc, centerX, centerZ) {
         continue;
       }
 
-      winMesh.position.set(px, py, pz);
-      group.add(winMesh);
+      // Skip center window on ground floor front for door replacement
+      var isDoorPosition = meshDesc.isGroundFloor &&
+        meshDesc.unitId === "A" &&
+        wall === "north" &&
+        n === Math.floor(numWindows / 2);
+
+      if (!isDoorPosition) {
+        windowDescs.push({
+          px: px, py: py, pz: pz,
+          winW: WIN_W, winH: WIN_H, winD: WIN_D,
+          wall: wall
+        });
+      }
     }
   }
 }
 
-function addRoofParapets(group, meshDesc, centerX, centerZ) {
+function addChicagoWindows(group, windowDescs, glassMat, limestoneMat, mullionMat) {
+  var count = windowDescs.length;
+  if (count === 0) return;
+
+  var unitBox = new THREE.BoxGeometry(1, 1, 1);
+
+  var glassIM = new THREE.InstancedMesh(unitBox, glassMat, count);
+  var lintelIM = new THREE.InstancedMesh(unitBox.clone(), limestoneMat, count);
+  var sillIM = new THREE.InstancedMesh(unitBox.clone(), limestoneMat, count);
+
+  var dummy = new THREE.Object3D();
+
+  for (var i = 0; i < count; i++) {
+    var wd = windowDescs[i];
+    var isEW = (wd.wall === "east" || wd.wall === "west");
+
+    // Glass pane
+    dummy.position.set(wd.px, wd.py, wd.pz);
+    dummy.scale.set(
+      isEW ? wd.winD : wd.winW,
+      wd.winH,
+      isEW ? wd.winW : wd.winD
+    );
+    dummy.updateMatrix();
+    glassIM.setMatrixAt(i, dummy.matrix);
+
+    // Lintel (above window)
+    var LINTEL_H = 0.8;
+    var LINTEL_EXTRA_W = 0.6;
+    dummy.position.set(wd.px, wd.py + wd.winH / 2 + LINTEL_H / 2, wd.pz);
+    dummy.scale.set(
+      isEW ? wd.winD + 0.1 : wd.winW + LINTEL_EXTRA_W,
+      LINTEL_H,
+      isEW ? wd.winW + LINTEL_EXTRA_W : wd.winD + 0.1
+    );
+    dummy.updateMatrix();
+    lintelIM.setMatrixAt(i, dummy.matrix);
+
+    // Sill (below window, projecting outward)
+    var SILL_H = 0.4;
+    var SILL_EXTRA_W = 0.4;
+    var SILL_PROJECT = 0.15;
+    var sillPz = wd.pz, sillPx = wd.px;
+    if (wd.wall === "north") sillPz -= SILL_PROJECT;
+    else if (wd.wall === "south") sillPz += SILL_PROJECT;
+    else if (wd.wall === "east") sillPx += SILL_PROJECT;
+    else if (wd.wall === "west") sillPx -= SILL_PROJECT;
+
+    dummy.position.set(sillPx, wd.py - wd.winH / 2 - SILL_H / 2, sillPz);
+    dummy.scale.set(
+      isEW ? wd.winD + 0.3 : wd.winW + SILL_EXTRA_W,
+      SILL_H,
+      isEW ? wd.winW + SILL_EXTRA_W : wd.winD + 0.3
+    );
+    dummy.updateMatrix();
+    sillIM.setMatrixAt(i, dummy.matrix);
+  }
+
+  glassIM.instanceMatrix.needsUpdate = true;
+  lintelIM.instanceMatrix.needsUpdate = true;
+  sillIM.instanceMatrix.needsUpdate = true;
+
+  glassIM.castShadow = false;
+  glassIM.receiveShadow = false;
+  lintelIM.castShadow = true;
+  lintelIM.receiveShadow = true;
+  sillIM.castShadow = true;
+  sillIM.receiveShadow = true;
+
+  group.add(glassIM);
+  group.add(lintelIM);
+  group.add(sillIM);
+}
+
+// ── Architectural Details ───────────────────────────────────────────────────
+
+function addBeltCourses(group, dedupedMeshes, centerX, centerZ, limestoneMat) {
+  var BELT_H = 0.6;
+  var BELT_PROJECT = 0.15;
+  var geos = [];
+
+  for (var i = 0; i < dedupedMeshes.length; i++) {
+    var m = dedupedMeshes[i];
+    if (m.type !== "unit") continue;
+
+    var cx = m.x + m.width / 2 - centerX;
+    var cz = m.z + m.depth / 2 - centerZ;
+    var baseY = m.y + BELT_H / 2;
+
+    // North face
+    var nGeo = new THREE.BoxGeometry(m.width + BELT_PROJECT * 2, BELT_H, BELT_PROJECT);
+    nGeo.translate(cx, baseY, m.z - BELT_PROJECT / 2 - centerZ);
+    geos.push(nGeo);
+
+    // South face
+    var sGeo = new THREE.BoxGeometry(m.width + BELT_PROJECT * 2, BELT_H, BELT_PROJECT);
+    sGeo.translate(cx, baseY, m.z + m.depth + BELT_PROJECT / 2 - centerZ);
+    geos.push(sGeo);
+
+    // East face
+    var eGeo = new THREE.BoxGeometry(BELT_PROJECT, BELT_H, m.depth + BELT_PROJECT * 2);
+    eGeo.translate(m.x + m.width + BELT_PROJECT / 2 - centerX, baseY, cz);
+    geos.push(eGeo);
+
+    // West face
+    var wGeo = new THREE.BoxGeometry(BELT_PROJECT, BELT_H, m.depth + BELT_PROJECT * 2);
+    wGeo.translate(m.x - BELT_PROJECT / 2 - centerX, baseY, cz);
+    geos.push(wGeo);
+  }
+
+  if (geos.length > 0) {
+    var merged = mergeGeometries(geos, false);
+    var mesh = new THREE.Mesh(merged, limestoneMat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    geos.forEach(function (g) { g.dispose(); });
+  }
+}
+
+function addCornice(group, meshDesc, centerX, centerZ, limestoneMat) {
+  var topY = meshDesc.y + meshDesc.height;
+  var cx = meshDesc.x + meshDesc.width / 2 - centerX;
+  var cz = meshDesc.z + meshDesc.depth / 2 - centerZ;
+  var geos = [];
+
+  // Layer 1: Main cornice band (projects 1.2ft, 0.8ft tall)
+  var MAIN_H = 0.8;
+  var MAIN_PROJECT = 1.2;
+  var mainW = meshDesc.width + MAIN_PROJECT * 2;
+  var mainD = meshDesc.depth + MAIN_PROJECT * 2;
+  var mainGeo = new THREE.BoxGeometry(mainW, MAIN_H, mainD);
+  mainGeo.translate(cx, topY + MAIN_H / 2, cz);
+  geos.push(mainGeo);
+
+  // Layer 2: Soffit step (projects 0.8ft, 0.4ft tall, below main)
+  var SOFFIT_H = 0.4;
+  var SOFFIT_PROJECT = 0.8;
+  var soffitW = meshDesc.width + SOFFIT_PROJECT * 2;
+  var soffitD = meshDesc.depth + SOFFIT_PROJECT * 2;
+  var soffitGeo = new THREE.BoxGeometry(soffitW, SOFFIT_H, soffitD);
+  soffitGeo.translate(cx, topY - SOFFIT_H / 2, cz);
+  geos.push(soffitGeo);
+
+  var merged = mergeGeometries(geos, false);
+  var mesh = new THREE.Mesh(merged, limestoneMat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  group.add(mesh);
+  geos.forEach(function (g) { g.dispose(); });
+
+  // Layer 3: Dentil course (small blocks between soffit and main)
+  var DENTIL_W = 0.5;
+  var DENTIL_H = 0.6;
+  var DENTIL_D = 0.4;
+  var DENTIL_SPACING = 1.0;
+
+  var northCount = Math.floor(meshDesc.width / DENTIL_SPACING);
+  var eastCount = Math.floor(meshDesc.depth / DENTIL_SPACING);
+  var totalDentils = (northCount + eastCount) * 2;
+
+  if (totalDentils > 0) {
+    var dentilGeo = new THREE.BoxGeometry(DENTIL_W, DENTIL_H, DENTIL_D);
+    var dentilIM = new THREE.InstancedMesh(dentilGeo, limestoneMat, totalDentils);
+    var dummy = new THREE.Object3D();
+    var idx = 0;
+    var dentilY = topY - SOFFIT_H - DENTIL_H / 2;
+
+    // North face dentils
+    for (var d = 0; d < northCount; d++) {
+      var dx = meshDesc.x + (d + 0.5) * DENTIL_SPACING - centerX;
+      dummy.position.set(dx, dentilY, meshDesc.z - SOFFIT_PROJECT / 2 - centerZ);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      dentilIM.setMatrixAt(idx++, dummy.matrix);
+    }
+    // South face dentils
+    for (var d = 0; d < northCount; d++) {
+      var dx = meshDesc.x + (d + 0.5) * DENTIL_SPACING - centerX;
+      dummy.position.set(dx, dentilY, meshDesc.z + meshDesc.depth + SOFFIT_PROJECT / 2 - centerZ);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      dentilIM.setMatrixAt(idx++, dummy.matrix);
+    }
+    // East face dentils
+    for (var d = 0; d < eastCount; d++) {
+      var dz = meshDesc.z + (d + 0.5) * DENTIL_SPACING - centerZ;
+      dummy.position.set(meshDesc.x + meshDesc.width + SOFFIT_PROJECT / 2 - centerX, dentilY, dz);
+      dummy.scale.set(DENTIL_D / DENTIL_W, 1, DENTIL_W / DENTIL_D);
+      dummy.updateMatrix();
+      dentilIM.setMatrixAt(idx++, dummy.matrix);
+    }
+    // West face dentils
+    for (var d = 0; d < eastCount; d++) {
+      var dz = meshDesc.z + (d + 0.5) * DENTIL_SPACING - centerZ;
+      dummy.position.set(meshDesc.x - SOFFIT_PROJECT / 2 - centerX, dentilY, dz);
+      dummy.scale.set(DENTIL_D / DENTIL_W, 1, DENTIL_W / DENTIL_D);
+      dummy.updateMatrix();
+      dentilIM.setMatrixAt(idx++, dummy.matrix);
+    }
+
+    dentilIM.instanceMatrix.needsUpdate = true;
+    dentilIM.castShadow = true;
+    group.add(dentilIM);
+  }
+}
+
+function addRoofParapetsWithCoping(group, meshDesc, centerX, centerZ) {
   var PARAPET_H = 1.5;
   var PARAPET_T = 0.4;
-  var slabMat = getMaterial("slab");
+  var slabMat = getConcreteMaterial();
+  var limestoneMat = getLimestoneMaterial();
   var topY = meshDesc.y + meshDesc.height + PARAPET_H / 2;
 
   // North wall
@@ -217,7 +550,7 @@ function addRoofParapets(group, meshDesc, centerX, centerZ) {
   group.add(nMesh);
 
   // South wall
-  var sMesh = new THREE.Mesh(nGeo, slabMat);
+  var sMesh = new THREE.Mesh(nGeo.clone(), slabMat);
   sMesh.position.set(
     meshDesc.x + meshDesc.width / 2 - centerX,
     topY,
@@ -238,7 +571,7 @@ function addRoofParapets(group, meshDesc, centerX, centerZ) {
   group.add(eMesh);
 
   // West wall
-  var wMesh = new THREE.Mesh(eGeo, slabMat);
+  var wMesh = new THREE.Mesh(eGeo.clone(), slabMat);
   wMesh.position.set(
     meshDesc.x - PARAPET_T / 2 - centerX,
     topY,
@@ -246,6 +579,73 @@ function addRoofParapets(group, meshDesc, centerX, centerZ) {
   );
   wMesh.castShadow = true;
   group.add(wMesh);
+
+  // Limestone coping caps on top of each parapet wall
+  var COPING_H = 0.25;
+  var COPING_OVERHANG = 0.2;
+  var copingY = meshDesc.y + meshDesc.height + PARAPET_H + COPING_H / 2;
+
+  // North coping
+  var ncGeo = new THREE.BoxGeometry(meshDesc.width + COPING_OVERHANG * 2, COPING_H, PARAPET_T + COPING_OVERHANG * 2);
+  var ncMesh = new THREE.Mesh(ncGeo, limestoneMat);
+  ncMesh.position.set(
+    meshDesc.x + meshDesc.width / 2 - centerX,
+    copingY,
+    meshDesc.z - PARAPET_T / 2 - centerZ
+  );
+  ncMesh.castShadow = true;
+  group.add(ncMesh);
+
+  // South coping
+  var scMesh = new THREE.Mesh(ncGeo.clone(), limestoneMat);
+  scMesh.position.set(
+    meshDesc.x + meshDesc.width / 2 - centerX,
+    copingY,
+    meshDesc.z + meshDesc.depth + PARAPET_T / 2 - centerZ
+  );
+  scMesh.castShadow = true;
+  group.add(scMesh);
+
+  // East coping
+  var ecGeo = new THREE.BoxGeometry(PARAPET_T + COPING_OVERHANG * 2, COPING_H, meshDesc.depth + PARAPET_T * 2 + COPING_OVERHANG * 2);
+  var ecMesh = new THREE.Mesh(ecGeo, limestoneMat);
+  ecMesh.position.set(
+    meshDesc.x + meshDesc.width + PARAPET_T / 2 - centerX,
+    copingY,
+    meshDesc.z + meshDesc.depth / 2 - centerZ
+  );
+  ecMesh.castShadow = true;
+  group.add(ecMesh);
+
+  // West coping
+  var wcMesh = new THREE.Mesh(ecGeo.clone(), limestoneMat);
+  wcMesh.position.set(
+    meshDesc.x - PARAPET_T / 2 - centerX,
+    copingY,
+    meshDesc.z + meshDesc.depth / 2 - centerZ
+  );
+  wcMesh.castShadow = true;
+  group.add(wcMesh);
+}
+
+function addEntryDoor(group, meshDesc, centerX, centerZ) {
+  var DOOR_W = 3.5;
+  var DOOR_H = 8.0;
+  var DOOR_D = 0.5;
+  var doorMat = getDoorMaterial();
+
+  var doorGeo = new THREE.BoxGeometry(DOOR_W, DOOR_H, DOOR_D);
+  var doorMesh = new THREE.Mesh(doorGeo, doorMat);
+
+  // Position at center of north wall, at ground level
+  doorMesh.position.set(
+    meshDesc.x + meshDesc.width / 2 - centerX,
+    meshDesc.y + DOOR_H / 2,
+    meshDesc.z - DOOR_D / 2 - centerZ
+  );
+  doorMesh.castShadow = true;
+  doorMesh.receiveShadow = true;
+  group.add(doorMesh);
 }
 
 function addStairIndication(group, meshDesc, centerX, centerZ) {
@@ -279,6 +679,8 @@ function addStairIndication(group, meshDesc, centerX, centerZ) {
   }
 }
 
+// ── Building Group Construction ─────────────────────────────────────────────
+
 function buildBuildingGroup(meshData, label) {
   var group = new THREE.Group();
 
@@ -302,21 +704,39 @@ function buildBuildingGroup(meshData, label) {
   var centerX = (minX + maxX) / 2;
   var centerZ = (minZ + maxZ) / 2;
 
+  // Phase 1: Collect window positions across all units
+  var windowDescs = [];
+
+  // Phase 2: Build main meshes
   for (var i = 0; i < dedupedMeshes.length; i++) {
     var meshDesc = dedupedMeshes[i];
 
     var geometry = new THREE.BoxGeometry(meshDesc.width, meshDesc.height, meshDesc.depth);
-    var material = getMaterial(meshDesc.type);
+
+    // Apply world-space UVs for brick texture on units
+    if (meshDesc.type === "unit") {
+      setWorldSpaceUVs(geometry, meshDesc.width, meshDesc.height, meshDesc.depth, 0.15);
+      // Copy uv to uv1 for AO map
+      geometry.setAttribute('uv1', geometry.getAttribute('uv').clone());
+    }
+
+    var material;
+    if (meshDesc.type === "unit") {
+      material = getBrickMaterial();
+    } else if (meshDesc.type === "slab") {
+      material = getConcreteMaterial();
+    } else {
+      material = getMaterial(meshDesc.type);
+    }
+
     var mesh = new THREE.Mesh(geometry, material);
 
-    // Position: center of the box in Three.js coordinates
     mesh.position.set(
       meshDesc.x + meshDesc.width / 2 - centerX,
       meshDesc.y + meshDesc.height / 2,
       meshDesc.z + meshDesc.depth / 2 - centerZ
     );
 
-    // Enable shadows
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
@@ -329,28 +749,41 @@ function buildBuildingGroup(meshData, label) {
 
     group.add(mesh);
 
-    // Architectural edge lines (skip slabs — too thin, would be noisy)
-    if (meshDesc.type !== "slab") {
-      addEdgeLines(group, geometry, mesh.position);
-    }
+    // No edge lines (removed - brick textures + normal maps + GTAO define edges)
 
-    // Window insets on unit exterior walls
+    // Collect windows (instead of adding individually)
     if (meshDesc.type === "unit" && meshDesc.windowWalls) {
-      addWindowInsets(group, meshDesc, centerX, centerZ);
+      collectWindowPositions(windowDescs, meshDesc, centerX, centerZ);
     }
 
-    // Roof parapets on top floor units
+    // Cornice on top floor
     if (meshDesc.type === "unit" && meshDesc.isTopFloor) {
-      addRoofParapets(group, meshDesc, centerX, centerZ);
+      addCornice(group, meshDesc, centerX, centerZ, getLimestoneMaterial());
+    }
+
+    // Roof parapets with limestone coping on top floor
+    if (meshDesc.type === "unit" && meshDesc.isTopFloor) {
+      addRoofParapetsWithCoping(group, meshDesc, centerX, centerZ);
     }
 
     // Staircase diagonal indication
     if (meshDesc.type === "staircase") {
       addStairIndication(group, meshDesc, centerX, centerZ);
     }
+
+    // Ground floor entry door
+    if (meshDesc.type === "unit" && meshDesc.isGroundFloor && meshDesc.unitId === "A") {
+      addEntryDoor(group, meshDesc, centerX, centerZ);
+    }
   }
 
-  // Add CSS2D label above the building
+  // Phase 3: Add instanced windows (all at once)
+  addChicagoWindows(group, windowDescs, getGlassMaterial(), getLimestoneMaterial(), getMullionMaterial());
+
+  // Phase 4: Add merged belt courses
+  addBeltCourses(group, dedupedMeshes, centerX, centerZ, getLimestoneMaterial());
+
+  // CSS2D label
   if (label) {
     var labelColor = label === "Current Code" ? "#E07A5A" : "#5BBF82";
     var labelObj = createLabel(label, labelColor);
@@ -361,17 +794,15 @@ function buildBuildingGroup(meshData, label) {
   return group;
 }
 
+// ── Ground Plane ────────────────────────────────────────────────────────────
+
 function addGroundPlane(scene, width, depth) {
   var planeSize = Math.max(width, depth) * 6;
 
-  // Visible dark ground surface
+  // Textured concrete sidewalk
+  var concreteMat = getConcreteMaterial();
   var groundGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-  var groundMat = new THREE.MeshPhysicalMaterial({
-    color: 0x1a1e28,
-    roughness: 0.95,
-    metalness: 0.0,
-  });
-  var groundPlane = new THREE.Mesh(groundGeo, groundMat);
+  var groundPlane = new THREE.Mesh(groundGeo, concreteMat);
   groundPlane.rotation.x = -Math.PI / 2;
   groundPlane.position.y = -0.15;
   groundPlane.receiveShadow = true;
@@ -386,15 +817,10 @@ function addGroundPlane(scene, width, depth) {
   shadowPlane.receiveShadow = true;
   scene.add(shadowPlane);
 
-  // Subtle grid — very faint architectural reference lines
-  var gridSize = Math.max(width, depth) * 2;
-  var gridDivisions = Math.round(gridSize / 10);
-  var gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x2A2E38, 0x20242E);
-  gridHelper.position.y = -0.05;
-  gridHelper.material.transparent = true;
-  gridHelper.material.opacity = 0.25;
-  scene.add(gridHelper);
+  // No grid helper (textured ground replaces it)
 }
+
+// ── Rendering ───────────────────────────────────────────────────────────────
 
 function renderFrame() {
   if (_composer) {
@@ -407,23 +833,23 @@ function renderFrame() {
   }
 }
 
+// ── Scene Setup ─────────────────────────────────────────────────────────────
+
 function setupScene(container) {
   var width = container.clientWidth;
   var height = container.clientHeight;
 
-  // Scene
+  // ── Scene ──
   var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x141820);
-
-  // Atmospheric fog (matches background, fades distant elements)
-  scene.fog = new THREE.FogExp2(0x141820, 0.005);
+  // No scene.background - Sky provides it
+  // Fog matches golden-hour horizon
+  scene.fog = new THREE.FogExp2(0x9EB0C8, 0.003);
 
   // Camera
   var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
 
   // Renderer (reuse if exists to avoid WebGL context leaks)
   if (!_renderer) {
-    // Disable built-in antialias since SMAA handles it via post-processing
     _renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
     _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(_renderer.domElement);
@@ -434,7 +860,7 @@ function setupScene(container) {
 
     // Tone mapping for cinematic color
     _renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    _renderer.toneMappingExposure = 1.0;
+    _renderer.toneMappingExposure = 0.9;
     _renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
   _renderer.setSize(width, height);
@@ -450,74 +876,140 @@ function setupScene(container) {
   }
   _labelRenderer.setSize(width, height);
 
-  // ── Environment Map ─────────────────────────────────────────────────────
+  // ── Procedural Sky ──────────────────────────────────────────────────────
+  var sky = new Sky();
+  sky.scale.setScalar(10000);
+  scene.add(sky);
+
+  var skyUniforms = sky.material.uniforms;
+  skyUniforms['turbidity'].value = 4;
+  skyUniforms['rayleigh'].value = 2;
+  skyUniforms['mieCoefficient'].value = 0.005;
+  skyUniforms['mieDirectionalG'].value = 0.8;
+
+  // Sun position: 15 degrees elevation, 220 degrees azimuth (Chicago SW evening)
+  var phi = THREE.MathUtils.degToRad(90 - 15);
+  var theta = THREE.MathUtils.degToRad(220);
+  var sunPosition = new THREE.Vector3().setFromSphericalCoords(1, phi, theta);
+  skyUniforms['sunPosition'].value.copy(sunPosition);
+
+  // ── Environment Map from Sky (replaces RoomEnvironment) ─────────────────
   var pmremGenerator = new THREE.PMREMGenerator(_renderer);
-  var envMap = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environment = envMap;
-  scene.environmentIntensity = 0.3;
+  pmremGenerator.compileEquirectangularShader();
+
+  // Generate PMREM from a separate sky scene
+  var skyRenderTarget = pmremGenerator.fromScene(
+    (function () {
+      var s = new THREE.Scene();
+      var skyCopy = new Sky();
+      skyCopy.scale.setScalar(10000);
+      var u = skyCopy.material.uniforms;
+      u['turbidity'].value = 4;
+      u['rayleigh'].value = 2;
+      u['mieCoefficient'].value = 0.005;
+      u['mieDirectionalG'].value = 0.8;
+      u['sunPosition'].value.copy(sunPosition);
+      s.add(skyCopy);
+      return s;
+    })(),
+    0, 0.1, 1000
+  );
+  scene.environment = skyRenderTarget.texture;
+  scene.environmentIntensity = 0.5;
+
+  // ── Grounded Skybox ─────────────────────────────────────────────────────
+  var groundedSkybox = new GroundedSkybox(skyRenderTarget.texture, 30, 500);
+  groundedSkybox.position.y = -0.1;
+  scene.add(groundedSkybox);
+
   pmremGenerator.dispose();
 
   // ── Post-Processing Pipeline ────────────────────────────────────────────
   _composer = new EffectComposer(_renderer);
 
-  // 1. RenderPass — renders scene to framebuffer
+  // 1. RenderPass
   var renderPass = new RenderPass(scene, camera);
   _composer.addPass(renderPass);
 
-  // 2. UnrealBloomPass — very subtle warm glow
+  // 2. GTAOPass - screen-space ambient occlusion
+  _gtaoPass = new GTAOPass(scene, camera, width, height);
+  _gtaoPass.output = GTAOPass.OUTPUT.Default;
+  _gtaoPass.updateGtaoMaterial({
+    radius: 3.0,
+    distanceExponent: 2.0,
+    thickness: 5.0,
+    scale: 1.0,
+    samples: 16,
+  });
+  _gtaoPass.updatePdMaterial({
+    lumaPhi: 10.0,
+    depthPhi: 2.0,
+    normalPhi: 3.0,
+    radius: 4,
+    rings: 4,
+    samples: 16,
+  });
+  _composer.addPass(_gtaoPass);
+
+  // 3. UnrealBloomPass - enhanced for window glow
   var bloomPass = new UnrealBloomPass(
     new THREE.Vector2(width, height),
-    0.15,  // strength
-    0.4,   // radius
-    0.85   // threshold
+    0.3,   // strength (up from 0.15)
+    0.6,   // radius (up from 0.4)
+    0.7    // threshold (down from 0.85)
   );
   _composer.addPass(bloomPass);
 
-  // 3. SMAAPass — anti-aliasing (replaces built-in MSAA)
+  // 4. SMAAPass - anti-aliasing
   var smaaPass = new SMAAPass(width * _renderer.getPixelRatio(), height * _renderer.getPixelRatio());
   _composer.addPass(smaaPass);
 
-  // 4. OutputPass — required for correct tone mapping with post-processing (must be last)
+  // 5. FilmPass - photographic grain
+  var filmPass = new FilmPass(0.15);
+  _composer.addPass(filmPass);
+
+  // 6. OutputPass - must be last
   var outputPass = new OutputPass();
   _composer.addPass(outputPass);
 
-  // ── Lighting ──────────────────────────────────────────────────────────────
+  // ── Lighting ────────────────────────────────────────────────────────────
 
   // Initialize RectAreaLight uniforms
   RectAreaLightUniformsLib.init();
 
-  // Hemisphere light: warm sky, cool ground — natural ambient
-  var hemiLight = new THREE.HemisphereLight(0xF5E6D0, 0x3A4050, 0.55);
+  // Hemisphere light
+  var hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x3A4050, 0.4);
   scene.add(hemiLight);
 
-  // Key directional light (warm) with shadows — reduced since env map compensates
-  var keyLight = new THREE.DirectionalLight(0xFFF4E6, 0.6);
-  keyLight.position.set(50, 80, 60);
+  // Key directional light - golden hour
+  var keyLight = new THREE.DirectionalLight(0xFFD49B, 1.2);
+  // Align with sky sun position
+  keyLight.position.set(sunPosition.x * 80, sunPosition.y * 80, sunPosition.z * 80);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.width = 2048;
-  keyLight.shadow.mapSize.height = 2048;
+  keyLight.shadow.mapSize.width = 4096;
+  keyLight.shadow.mapSize.height = 4096;
   keyLight.shadow.camera.near = 1;
   keyLight.shadow.camera.far = 300;
   keyLight.shadow.camera.left = -120;
   keyLight.shadow.camera.right = 120;
   keyLight.shadow.camera.top = 120;
   keyLight.shadow.camera.bottom = -120;
-  keyLight.shadow.bias = -0.0005;
+  keyLight.shadow.bias = -0.0003;
   keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight);
 
-  // Fill light (cool) — softer, from opposite side
-  var fillLight = new THREE.DirectionalLight(0xB0C4DE, 0.2);
+  // Fill light (cool)
+  var fillLight = new THREE.DirectionalLight(0xA0B8D0, 0.25);
   fillLight.position.set(-40, 50, -30);
   scene.add(fillLight);
 
-  // Rim / back light — subtle edge definition
-  var rimLight = new THREE.DirectionalLight(0xE8DCD0, 0.15);
+  // Rim / back light
+  var rimLight = new THREE.DirectionalLight(0xFFE0C0, 0.2);
   rimLight.position.set(-20, 30, 80);
   scene.add(rimLight);
 
-  // RectAreaLight — soft overhead architectural light
-  var rectLight = new THREE.RectAreaLight(0xFFF4E6, 2.0, 80, 80);
+  // RectAreaLight - reduced intensity (sky provides more ambient now)
+  var rectLight = new THREE.RectAreaLight(0xFFF4E6, 1.0, 80, 80);
   rectLight.position.set(0, 60, 0);
   rectLight.lookAt(0, 0, 0);
   scene.add(rectLight);
@@ -527,42 +1019,54 @@ function setupScene(container) {
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.screenSpacePanning = true;
-  controls.maxPolarAngle = Math.PI / 2.05; // Prevent going below ground
+  controls.maxPolarAngle = Math.PI / 2.05;
   controls.minDistance = 10;
   controls.maxDistance = 500;
 
   return { scene: scene, camera: camera, controls: controls };
 }
 
+// ── Disposal ────────────────────────────────────────────────────────────────
+
 function disposeScene(scene) {
   if (!scene) return;
+
+  // Dispose textures from the texture cache module
+  disposeTextures();
+
   scene.traverse(function (obj) {
-    // Remove CSS2DObject DOM elements so labels don't accumulate
     if (obj instanceof CSS2DObject && obj.element && obj.element.parentNode) {
       obj.element.parentNode.removeChild(obj.element);
     }
     if (obj.geometry) obj.geometry.dispose();
     if (obj.material) {
-      if (Array.isArray(obj.material)) {
-        obj.material.forEach(function (m) {
-          if (m.map) m.map.dispose();
-          if (m.clearcoatMap) m.clearcoatMap.dispose();
-          if (m.clearcoatRoughnessMap) m.clearcoatRoughnessMap.dispose();
-          m.dispose();
+      var materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+      materials.forEach(function (m) {
+        var mapNames = [
+          'map', 'normalMap', 'roughnessMap', 'aoMap', 'emissiveMap',
+          'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+          'sheenColorMap', 'sheenRoughnessMap',
+          'specularIntensityMap', 'specularColorMap',
+          'transmissionMap', 'thicknessMap'
+        ];
+        mapNames.forEach(function (name) {
+          if (m[name]) m[name].dispose();
         });
-      } else {
-        if (obj.material.map) obj.material.map.dispose();
-        if (obj.material.clearcoatMap) obj.material.clearcoatMap.dispose();
-        if (obj.material.clearcoatRoughnessMap) obj.material.clearcoatRoughnessMap.dispose();
-        obj.material.dispose();
-      }
+        m.dispose();
+      });
+    }
+    // Dispose Sky shader material
+    if (obj.isSky && obj.material) {
+      obj.material.dispose();
     }
   });
-  // Clear children
+
   while (scene.children.length > 0) {
     scene.remove(scene.children[0]);
   }
 }
+
+// ── Render Loop ─────────────────────────────────────────────────────────────
 
 function startRenderLoop(scene, camera, controls) {
   if (_renderLoopActive) return;
@@ -589,11 +1093,12 @@ function onControlsInteraction(scene, camera, controls) {
   clearTimeout(_idleTimeout);
   startRenderLoop(scene, camera, controls);
   _idleTimeout = setTimeout(function () {
-    // Render one last frame then stop
     renderFrame();
     stopRenderLoop();
   }, 2000);
 }
+
+// ── Main Entry Point ────────────────────────────────────────────────────────
 
 function renderBuildings(container, config) {
   // Check for WebGL support
@@ -617,10 +1122,15 @@ function renderBuildings(container, config) {
     disposeScene(_scene);
   }
 
-  // Clear material cache
+  // Clear material caches
   _materialCache = {};
-  _edgeMaterialCache = null;
-  _windowMaterialCache = null;
+  _brickMaterialCache = null;
+  _glassMaterialCache = null;
+  _limestoneMaterialCache = null;
+  _concreteMaterialCache = null;
+  _mullionMaterialCache = null;
+  _doorMaterialCache = null;
+  _gtaoPass = null;
 
   // Ensure container is visible and has dimensions
   container.style.display = "block";
@@ -633,7 +1143,7 @@ function renderBuildings(container, config) {
   renderStandardBuildings(_scene, _camera, config);
 
   // Ground plane
-  var bw = 80; // default
+  var bw = 80;
   var bd = 80;
   addGroundPlane(_scene, bw, bd);
 
@@ -647,6 +1157,7 @@ function renderBuildings(container, config) {
       _camera.updateProjectionMatrix();
       _renderer.setSize(w, h);
       if (_composer) _composer.setSize(w, h);
+      if (_gtaoPass) _gtaoPass.setSize(w, h);
       if (_labelRenderer) _labelRenderer.setSize(w, h);
       renderFrame();
     }
@@ -737,13 +1248,11 @@ function goToTourStep(stepIndex) {
   _tourState.animating = true;
   _controls.enabled = false;
 
-  // Keep render loop active during animation
   startRenderLoop(_scene, _camera, _controls);
 
   animateCamera(_camera, _controls, fromPos, step.cameraPosition, fromTarget, step.cameraTarget, 1500, function () {
     _tourState.animating = false;
     _controls.enabled = true;
-    // Keep rendering for a bit after animation
     onControlsInteraction(_scene, _camera, _controls);
   });
 }

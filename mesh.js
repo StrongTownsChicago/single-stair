@@ -26,6 +26,7 @@ function buildMeshData(layout) {
         depth: unit.d,
         floorLevel: i,
         isTopFloor: isTopFloor,
+        isGroundFloor: i === 0,
         unitId: unit.id,
         unitType: unit.type,
         windowWalls: unit.windowWalls,
