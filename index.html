@@ -675,6 +675,9 @@
         backdrop-filter: blur(8px);
       }
 
+      #three-wrapper {
+        position: relative;
+      }
       #three-container {
         width: 100%;
         height: 600px;
@@ -690,6 +693,38 @@
         display: block;
         width: 100%;
         height: 100%;
+      }
+
+      .three-loading {
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        background: var(--bg-surface);
+        color: var(--text-muted);
+        font-family: var(--font-body);
+        font-size: 0.85rem;
+        z-index: 10;
+        transition: opacity 0.3s ease;
+      }
+      .three-loading[hidden] {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .three-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin3d 0.8s linear infinite;
+      }
+      @keyframes spin3d {
+        to { transform: rotate(360deg); }
       }
 
       /* ===== 3D VIEW CONTROLS ===== */
@@ -1203,14 +1238,20 @@
     <!-- 3D TAB -->
     <div id="three-tab" style="display: none">
       <div class="main-content">
-        <div id="three-container">
-          <div
-            class="tour-annotation"
-            id="tour-annotation"
-            style="display: none"
-          >
-            <h4 id="tour-title"></h4>
-            <p id="tour-description"></p>
+        <div id="three-wrapper">
+          <div id="three-container">
+            <div
+              class="tour-annotation"
+              id="tour-annotation"
+              style="display: none"
+            >
+              <h4 id="tour-title"></h4>
+              <p id="tour-description"></p>
+            </div>
+          </div>
+          <div id="three-loading" class="three-loading">
+            <div class="three-spinner"></div>
+            <span>Building 3D scene&hellip;</span>
           </div>
         </div>
         <div class="three-actions">

@@ -445,23 +445,31 @@ window.addEventListener("hashchange", function () {
 });
 
 // 3D rendering
-var _render3DTimeout = null;
+var _render3DRaf = null;
 var _isRendering3D = false;
 
 function render3D() {
   if (_isRendering3D) return;
-  clearTimeout(_render3DTimeout);
-  _render3DTimeout = setTimeout(function () {
-    _isRendering3D = true;
-    try {
-      var container = document.getElementById("three-container");
-      container.style.display = "block";
-      renderBuildings(container, currentConfig);
-      updateTourUI();
-    } finally {
-      _isRendering3D = false;
-    }
-  }, 100);
+  cancelAnimationFrame(_render3DRaf);
+
+  var container = document.getElementById("three-container");
+  var loader = document.getElementById("three-loading");
+  container.style.display = "block";
+  loader.hidden = false;
+
+  _render3DRaf = requestAnimationFrame(function () {
+    // Double-rAF ensures the spinner paints before heavy work
+    requestAnimationFrame(function () {
+      _isRendering3D = true;
+      try {
+        renderBuildings(container, currentConfig);
+        updateTourUI();
+      } finally {
+        _isRendering3D = false;
+        loader.hidden = true;
+      }
+    });
+  });
 }
 
 // Tour UI management
