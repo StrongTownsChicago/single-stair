@@ -35,6 +35,8 @@ var _resizeObserver = null;
 var _animationFrameId = null;
 var _tourState = null;
 var _gtaoPass = null;
+var _viewMode = "exterior";  // "exterior" | "cutaway"
+var _clipPlane = null;        // THREE.Plane reused across mode switches
 
 // ── Architectural color palette ─────────────────────────────────────────────
 var MATERIAL_COLORS = {
@@ -70,6 +72,8 @@ var _limestoneMaterialCache = null;
 var _concreteMaterialCache = null;
 var _mullionMaterialCache = null;
 var _doorMaterialCache = null;
+var _interiorFloorMaterialCache = null;
+var _interiorWallMaterialCache = null;
 
 // ── UV Scaling ──────────────────────────────────────────────────────────────
 
@@ -257,6 +261,32 @@ function getDoorMaterial() {
   });
 
   return _doorMaterialCache;
+}
+
+function getInteriorFloorMaterial() {
+  if (_interiorFloorMaterialCache) return _interiorFloorMaterialCache;
+
+  _interiorFloorMaterialCache = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0xD4C4A8),
+    roughness: 0.7,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
+
+  return _interiorFloorMaterialCache;
+}
+
+function getInteriorWallMaterial() {
+  if (_interiorWallMaterialCache) return _interiorWallMaterialCache;
+
+  _interiorWallMaterialCache = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0xF5EDD8),
+    roughness: 0.6,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
+
+  return _interiorWallMaterialCache;
 }
 
 // ── Labels ──────────────────────────────────────────────────────────────────
@@ -679,6 +709,125 @@ function addStairIndication(group, meshDesc, centerX, centerZ) {
   }
 }
 
+// ── Interior Elements (for Cutaway Mode) ────────────────────────────────────
+
+function addInteriorElements(group, dedupedMeshes, centerX, centerZ) {
+  var interiorGroup = new THREE.Group();
+  interiorGroup.name = "interiors";
+  interiorGroup.visible = false;
+
+  // Compute building footprint bounds
+  var minX = Infinity, maxX = -Infinity;
+  var minZ = Infinity, maxZ = -Infinity;
+  for (var i = 0; i < dedupedMeshes.length; i++) {
+    var m = dedupedMeshes[i];
+    if (m.x < minX) minX = m.x;
+    if (m.x + m.width > maxX) maxX = m.x + m.width;
+    if (m.z < minZ) minZ = m.z;
+    if (m.z + m.depth > maxZ) maxZ = m.z + m.depth;
+  }
+
+  var bw = maxX - minX;
+  var bd = maxZ - minZ;
+  var cx = (minX + maxX) / 2 - centerX;
+  var cz = (minZ + maxZ) / 2 - centerZ;
+
+  // South face interior offset (camera faces +z = south face)
+  // Clip plane removes z > 39 (south exterior face at local z=40).
+  // Interior fill placed just inside at southFace - 0.1 = 40 - 0.1 = 39.9 local z.
+  // Interior materials have no clip planes, so they're always visible.
+  var southFaceLocalZ = maxZ - centerZ;  // = +40 for 80ft deep lot
+  var fillZ = southFaceLocalZ - 0.1;     // = 39.9
+
+  // Group unit meshes by floor level
+  var floorUnits = {};
+  for (var i = 0; i < dedupedMeshes.length; i++) {
+    var m = dedupedMeshes[i];
+    if (m.type !== "unit") continue;
+    var fl = m.floorLevel;
+    if (!floorUnits[fl]) floorUnits[fl] = [];
+    floorUnits[fl].push(m);
+  }
+
+  var floorGeos = [];
+  var wallGeos = [];
+  var FLOOR_HEIGHT = 10;
+  var WALL_T = 0.3;
+
+  var floorKeys = [];
+  for (var k in floorUnits) floorKeys.push(Number(k));
+
+  for (var f = 0; f < floorKeys.length; f++) {
+    var fl = floorKeys[f];
+    var units = floorUnits[fl];
+    var floorY = fl * FLOOR_HEIGHT + 0.55;
+    var wallCenterY = fl * FLOOR_HEIGHT + FLOOR_HEIGHT / 2;
+
+    // Horizontal floor surface spanning full footprint
+    var floorGeo = new THREE.PlaneGeometry(bw, bd);
+    floorGeo.rotateX(-Math.PI / 2);
+    floorGeo.translate(cx, floorY, cz);
+    floorGeos.push(floorGeo);
+
+    // South face interior wall fill (faces +z = toward camera)
+    // PlaneGeometry default lies in XY plane facing +z, which is toward the camera at +z
+    var fillGeo = new THREE.PlaneGeometry(bw, FLOOR_HEIGHT);
+    fillGeo.translate(cx, wallCenterY, fillZ);
+    wallGeos.push(fillGeo);
+
+    // Partition walls at unit boundaries (x-direction splits)
+    var xBoundsSet = {};
+    var zBoundsSet = {};
+    for (var u = 0; u < units.length; u++) {
+      var um = units[u];
+      var xEnd = Math.round((um.x + um.width) * 10) / 10;
+      var zEnd = Math.round((um.z + um.depth) * 10) / 10;
+      for (var v = 0; v < units.length; v++) {
+        if (v === u) continue;
+        var vm = units[v];
+        if (Math.abs(vm.x - (um.x + um.width)) < 0.1) {
+          xBoundsSet[xEnd] = true;
+        }
+        if (Math.abs(vm.z - (um.z + um.depth)) < 0.1) {
+          zBoundsSet[zEnd] = true;
+        }
+      }
+    }
+
+    for (var xBound in xBoundsSet) {
+      var xb = Number(xBound);
+      var partGeo = new THREE.BoxGeometry(WALL_T, FLOOR_HEIGHT, bd);
+      partGeo.translate(xb - centerX, wallCenterY, cz);
+      wallGeos.push(partGeo);
+    }
+    for (var zBound in zBoundsSet) {
+      var zb = Number(zBound);
+      var partGeo = new THREE.BoxGeometry(bw, FLOOR_HEIGHT, WALL_T);
+      partGeo.translate(cx, wallCenterY, zb - centerZ);
+      wallGeos.push(partGeo);
+    }
+  }
+
+  if (floorGeos.length > 0) {
+    var mergedFloor = mergeGeometries(floorGeos, false);
+    var floorMesh = new THREE.Mesh(mergedFloor, getInteriorFloorMaterial());
+    floorMesh.userData.isInterior = true;
+    interiorGroup.add(floorMesh);
+    for (var i = 0; i < floorGeos.length; i++) floorGeos[i].dispose();
+  }
+
+  if (wallGeos.length > 0) {
+    var mergedWall = mergeGeometries(wallGeos, false);
+    var wallMesh = new THREE.Mesh(mergedWall, getInteriorWallMaterial());
+    wallMesh.userData.isInterior = true;
+    interiorGroup.add(wallMesh);
+    for (var i = 0; i < wallGeos.length; i++) wallGeos[i].dispose();
+  }
+
+  group.add(interiorGroup);
+  return interiorGroup;
+}
+
 // ── Building Group Construction ─────────────────────────────────────────────
 
 function buildBuildingGroup(meshData, label) {
@@ -783,6 +932,9 @@ function buildBuildingGroup(meshData, label) {
   // Phase 4: Add merged belt courses
   addBeltCourses(group, dedupedMeshes, centerX, centerZ, getLimestoneMaterial());
 
+  // Phase 5: Interior elements (hidden until cutaway mode)
+  addInteriorElements(group, dedupedMeshes, centerX, centerZ);
+
   // CSS2D label
   if (label) {
     var labelColor = label === "Current Code" ? "#E07A5A" : "#5BBF82";
@@ -853,6 +1005,9 @@ function setupScene(container) {
     _renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
     _renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(_renderer.domElement);
+
+    // Enable local (per-material) clipping for cutaway mode
+    _renderer.localClippingEnabled = true;
 
     // Shadow configuration
     _renderer.shadowMap.enabled = true;
@@ -1098,6 +1253,52 @@ function onControlsInteraction(scene, camera, controls) {
   }, 2000);
 }
 
+// ── View Mode (Exterior / Cutaway) ───────────────────────────────────────────
+
+function setViewMode(mode) {
+  _viewMode = mode;
+  if (!_scene || !_renderer) return;
+
+  // Lazily create the clip plane (south face: clips z > 39, keeping south exterior at z=40 removed)
+  // THREE.Plane(normal, constant): clips where normal.dot(p) + constant < 0
+  // (0,0,-1).dot(p) + 39 < 0  →  -z + 39 < 0  →  z > 39 is clipped
+  if (!_clipPlane) _clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 39);
+
+  var planes = (mode === "cutaway") ? [_clipPlane] : [];
+
+  // Apply/remove clip plane on all exterior (non-interior) materials
+  var exteriorMats = [
+    _brickMaterialCache,
+    _glassMaterialCache,
+    _limestoneMaterialCache,
+    _concreteMaterialCache,
+    _mullionMaterialCache,
+    _doorMaterialCache,
+  ];
+  for (var type in _materialCache) {
+    exteriorMats.push(_materialCache[type]);
+  }
+  for (var i = 0; i < exteriorMats.length; i++) {
+    var mat = exteriorMats[i];
+    if (mat) {
+      mat.clippingPlanes = planes;
+      mat.needsUpdate = true;
+    }
+  }
+
+  // GTAO causes dark halos at the clip boundary — disable in cutaway mode
+  if (_gtaoPass) _gtaoPass.enabled = (mode !== "cutaway");
+
+  // Toggle interior group visibility
+  _scene.traverse(function(obj) {
+    if (obj.name === "interiors") {
+      obj.visible = (mode === "cutaway");
+    }
+  });
+
+  renderFrame();
+}
+
 // ── Main Entry Point ────────────────────────────────────────────────────────
 
 function renderBuildings(container, config) {
@@ -1122,6 +1323,10 @@ function renderBuildings(container, config) {
     disposeScene(_scene);
   }
 
+  // Reset view mode (fresh scene always starts as exterior)
+  _viewMode = "exterior";
+  _clipPlane = null;
+
   // Clear material caches
   _materialCache = {};
   _brickMaterialCache = null;
@@ -1130,6 +1335,8 @@ function renderBuildings(container, config) {
   _concreteMaterialCache = null;
   _mullionMaterialCache = null;
   _doorMaterialCache = null;
+  _interiorFloorMaterialCache = null;
+  _interiorWallMaterialCache = null;
   _gtaoPass = null;
 
   // Ensure container is visible and has dimensions
@@ -1272,6 +1479,7 @@ function getViewerState() {
     controls: _controls,
     renderer: _renderer,
     tourState: _tourState,
+    viewMode: _viewMode,
   };
 }
 
@@ -1294,4 +1502,4 @@ if (typeof window !== "undefined") {
   });
 }
 
-export { renderBuildings, startTour, goToTourStep, endTour, getViewerState, stopRenderLoop, MATERIAL_COLORS, MATERIAL_OPACITY };
+export { renderBuildings, startTour, goToTourStep, endTour, getViewerState, stopRenderLoop, setViewMode, MATERIAL_COLORS, MATERIAL_OPACITY };
