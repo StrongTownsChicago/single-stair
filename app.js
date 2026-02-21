@@ -2,7 +2,7 @@
 // Extracted from index.html inline <script> block
 // ES module that imports 3D modules and references globals from plain <script> tags
 
-import { renderBuildings, startTour, goToTourStep, endTour, getViewerState, stopRenderLoop } from './viewer3d.js';
+import { renderBuildings, startTour, goToTourStep, endTour, getViewerState, stopRenderLoop, setViewMode } from './viewer3d.js';
 import { advanceTour } from './tour.js';
 
 // --- App State ---
@@ -463,6 +463,7 @@ function render3D() {
       _isRendering3D = true;
       try {
         renderBuildings(container, currentConfig);
+        resetViewModeUI();
         updateTourUI();
       } finally {
         _isRendering3D = false;
@@ -536,6 +537,29 @@ document
       updateTourUI();
     }
   });
+
+// View mode toggle
+var viewModeGroup = document.getElementById("view-mode-group");
+if (viewModeGroup) {
+  viewModeGroup.addEventListener("click", function(e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var mode = btn.dataset.mode;
+    if (!mode) return;
+    var btns = viewModeGroup.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.remove("active");
+    btn.classList.add("active");
+    setViewMode(mode);
+  });
+}
+
+function resetViewModeUI() {
+  if (!viewModeGroup) return;
+  var btns = viewModeGroup.querySelectorAll("button");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle("active", btns[i].dataset.mode === "exterior");
+  }
+}
 
 // --- Init ---
 syncControlsToConfig();
