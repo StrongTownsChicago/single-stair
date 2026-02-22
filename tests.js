@@ -144,6 +144,50 @@ if (typeof require !== "undefined") {
     };
   }
 
+  // viewer3d.js is now an ES module — provide computeDoorPositions inline
+  if (typeof globalThis.computeDoorPositions === "undefined") {
+    globalThis.computeDoorPositions = function computeDoorPositions(dedupedMeshes) {
+      var minX = Infinity, maxX = -Infinity;
+      var minZ = Infinity, maxZ = -Infinity;
+      for (var i = 0; i < dedupedMeshes.length; i++) {
+        var m = dedupedMeshes[i];
+        if (m.type === "slab") continue;
+        if (m.x < minX) minX = m.x;
+        if (m.x + m.width > maxX) maxX = m.x + m.width;
+        if (m.z < minZ) minZ = m.z;
+        if (m.z + m.depth > maxZ) maxZ = m.z + m.depth;
+      }
+      var groundStairs = [];
+      for (var i = 0; i < dedupedMeshes.length; i++) {
+        var m = dedupedMeshes[i];
+        if (m.type === "staircase" && m.floorLevel === 0) {
+          groundStairs.push(m);
+        }
+      }
+      var TOLERANCE = 0.5;
+      var southDoor = null;
+      var northDoor = null;
+      for (var i = 0; i < groundStairs.length; i++) {
+        var stair = groundStairs[i];
+        var stairCenterX = stair.x + stair.width / 2;
+        if (Math.abs((stair.z + stair.depth) - maxZ) < TOLERANCE && !southDoor) {
+          southDoor = { face: "south", x: stairCenterX, z: maxZ };
+        }
+        if (Math.abs(stair.z - minZ) < TOLERANCE && !northDoor) {
+          northDoor = { face: "north", x: stairCenterX, z: minZ };
+        }
+      }
+      if (!southDoor) {
+        southDoor = { face: "south", x: (minX + maxX) / 2, z: maxZ };
+      }
+      var doors = [southDoor];
+      if (northDoor) {
+        doors.push(northDoor);
+      }
+      return doors;
+    };
+  }
+
   // viewer3d.js is now an ES module — provide MATERIAL_COLORS inline
   if (typeof globalThis.MATERIAL_COLORS === "undefined") {
     globalThis.MATERIAL_COLORS = {
@@ -1296,6 +1340,141 @@ assert(groundFloorUnits.length > 0, "Multi-story building has ground floor units
 // (unless it's a single-story building, which doesn't exist in our configs)
 const bothFlags = completeMeshData.filter(m => m.type === "unit" && m.isTopFloor && m.isGroundFloor);
 assertEqual(bothFlags.length, 0, "No unit is both ground floor and top floor on 4-story building");
+
+// =============================================================
+// 6.1 — Door Position Tests
+// =============================================================
+
+console.log("=== Door Position Tests ===");
+
+// Helper: generate deduped meshes for a given config (matching buildBuildingGroup logic)
+function getDedupedMeshes(config) {
+  const layout = generateLayout(config);
+  const meshData = buildMeshData(layout);
+  return meshData.filter(m => m.type !== "staircase" || m.floorLevel === 0);
+}
+
+// Standard single lot (2-story): 1 south door at building center (camera-facing side)
+{
+  const deduped = getDedupedMeshes({ lot: "single", stories: 2, stair: "current" });
+  const doors = computeDoorPositions(deduped);
+  assertEqual(doors.length, 1, "Standard single 2-story: exactly 1 door");
+  assertEqual(doors[0].face, "south", "Standard single 2-story: door faces south (camera-facing)");
+  assertApprox(doors[0].x, 10, 0.5, "Standard single 2-story: door at x=10 (building center)");
+  assertEqual(doors[0].z, 80, "Standard single 2-story: door at z=80 (south face)");
+}
+
+// Single lot hallway (3-story current): front door at corridor, rear door at corridor
+{
+  const deduped = getDedupedMeshes({ lot: "single", stories: 3, stair: "current" });
+  const doors = computeDoorPositions(deduped);
+  assertEqual(doors.length, 2, "Single hallway 3-story: exactly 2 doors");
+  const northDoor = doors.find(d => d.face === "north");
+  const southDoor = doors.find(d => d.face === "south");
+  assert(northDoor, "Single hallway 3-story: has north door");
+  assert(southDoor, "Single hallway 3-story: has south door");
+  assertApprox(northDoor.x, 2.5, 0.5, "Single hallway 3-story: north door at x=2.5 (corridor center)");
+  assertApprox(southDoor.x, 2.5, 0.5, "Single hallway 3-story: south door at x=2.5 (corridor center)");
+  assertEqual(northDoor.z, 0, "Single hallway 3-story: north door at z=0");
+  assertEqual(southDoor.z, 80, "Single hallway 3-story: south door at z=80");
+}
+
+// Double lot hallway (3-story current): front/rear doors at hallway center
+{
+  const deduped = getDedupedMeshes({ lot: "double", stories: 3, stair: "current" });
+  const doors = computeDoorPositions(deduped);
+  assertEqual(doors.length, 2, "Double hallway 3-story: exactly 2 doors");
+  const northDoor = doors.find(d => d.face === "north");
+  const southDoor = doors.find(d => d.face === "south");
+  assert(northDoor, "Double hallway 3-story: has north door");
+  assert(southDoor, "Double hallway 3-story: has south door");
+  assertApprox(northDoor.x, 22.5, 0.5, "Double hallway 3-story: north door at x=22.5");
+  assertApprox(southDoor.x, 22.5, 0.5, "Double hallway 3-story: south door at x=22.5");
+  assertEqual(northDoor.z, 0, "Double hallway 3-story: north door at z=0");
+  assertEqual(southDoor.z, 80, "Double hallway 3-story: south door at z=80");
+}
+
+// Single lot reform (3-story): 1 south door at building center (camera-facing)
+{
+  const deduped = getDedupedMeshes({ lot: "single", stories: 3, stair: "reform" });
+  const doors = computeDoorPositions(deduped);
+  assertEqual(doors.length, 1, "Single reform 3-story: exactly 1 door");
+  assertEqual(doors[0].face, "south", "Single reform 3-story: door faces south (camera-facing)");
+  assertApprox(doors[0].x, 10, 0.5, "Single reform 3-story: door at x=10 (building center)");
+}
+
+// Double lot reform (3-story): 1 south door at building center (camera-facing)
+{
+  const deduped = getDedupedMeshes({ lot: "double", stories: 3, stair: "reform" });
+  const doors = computeDoorPositions(deduped);
+  assertEqual(doors.length, 1, "Double reform 3-story: exactly 1 door");
+  assertEqual(doors[0].face, "south", "Double reform 3-story: door faces south (camera-facing)");
+  assertApprox(doors[0].x, 22.5, 0.5, "Double reform 3-story: door at x=22.5 (building center)");
+}
+
+// All configs produce at least 1 south-facing (camera-facing) door
+{
+  for (const lot of ["single", "double"]) {
+    for (const stories of [2, 3, 4]) {
+      for (const stair of ["current", "reform"]) {
+        const deduped = getDedupedMeshes({ lot, stories, stair });
+        const doors = computeDoorPositions(deduped);
+        assert(doors.length >= 1, `${lot}/${stories}/${stair}: at least 1 door`);
+        assert(doors.some(d => d.face === "south"), `${lot}/${stories}/${stair}: has a south-facing (front) door`);
+      }
+    }
+  }
+}
+
+// Hallway configs (3+ story, current code) produce exactly 2 doors (1 north + 1 south)
+{
+  const hallwayConfigs = [
+    { lot: "single", stories: 3, stair: "current" },
+    { lot: "single", stories: 4, stair: "current" },
+    { lot: "double", stories: 3, stair: "current" },
+    { lot: "double", stories: 4, stair: "current" },
+  ];
+  for (const config of hallwayConfigs) {
+    const deduped = getDedupedMeshes(config);
+    const doors = computeDoorPositions(deduped);
+    assertEqual(doors.length, 2, `${config.lot}/${config.stories}/current hallway: exactly 2 doors`);
+    assertEqual(doors.filter(d => d.face === "north").length, 1, `${config.lot}/${config.stories}/current hallway: 1 north door`);
+    assertEqual(doors.filter(d => d.face === "south").length, 1, `${config.lot}/${config.stories}/current hallway: 1 south door`);
+  }
+}
+
+// Non-hallway configs produce exactly 1 door (south/camera-facing only)
+{
+  const nonHallwayConfigs = [
+    { lot: "single", stories: 2, stair: "current" },
+    { lot: "single", stories: 2, stair: "reform" },
+    { lot: "double", stories: 2, stair: "current" },
+    { lot: "double", stories: 2, stair: "reform" },
+    { lot: "single", stories: 3, stair: "reform" },
+    { lot: "double", stories: 3, stair: "reform" },
+  ];
+  for (const config of nonHallwayConfigs) {
+    const deduped = getDedupedMeshes(config);
+    const doors = computeDoorPositions(deduped);
+    assertEqual(doors.length, 1, `${config.lot}/${config.stories}/${config.stair}: exactly 1 door`);
+    assertEqual(doors[0].face, "south", `${config.lot}/${config.stories}/${config.stair}: door is south (camera-facing)`);
+  }
+}
+
+// No two doors share the same face
+{
+  for (const lot of ["single", "double"]) {
+    for (const stories of [2, 3, 4]) {
+      for (const stair of ["current", "reform"]) {
+        const deduped = getDedupedMeshes({ lot, stories, stair });
+        const doors = computeDoorPositions(deduped);
+        const faces = doors.map(d => d.face);
+        const uniqueFaces = new Set(faces);
+        assertEqual(faces.length, uniqueFaces.size, `${lot}/${stories}/${stair}: no duplicate door faces`);
+      }
+    }
+  }
+}
 
 // =============================================================
 

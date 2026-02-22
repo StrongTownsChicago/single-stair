@@ -251,9 +251,12 @@ function getDoorMaterial() {
   if (_doorMaterialCache) return _doorMaterialCache;
 
   _doorMaterialCache = new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(0x2A1F1A),
-    roughness: 0.4,
+    color: new THREE.Color(0x1A1412),
+    roughness: 0.3,
     metalness: 0.1,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.3,
+    envMapIntensity: 0.4,
   });
 
   return _doorMaterialCache;
@@ -271,13 +274,14 @@ function createLabel(text, color) {
 
 // ── Window System (InstancedMesh) ───────────────────────────────────────────
 
-function collectWindowPositions(windowDescs, meshDesc, centerX, centerZ) {
+function collectWindowPositions(windowDescs, meshDesc, centerX, centerZ, doorPositions) {
   if (!meshDesc.windowWalls || meshDesc.windowWalls.length === 0) return;
 
   var INSET = 0.2;
   var WIN_W = 2.5;
   var WIN_H = 4.0;
   var WIN_D = 0.3;
+  var DOOR_SKIP_RADIUS = 2.5;
   var yBase = meshDesc.y + (meshDesc.height - WIN_H) / 2;
 
   for (var w = 0; w < meshDesc.windowWalls.length; w++) {
@@ -307,11 +311,18 @@ function collectWindowPositions(windowDescs, meshDesc, centerX, centerZ) {
         continue;
       }
 
-      // Skip center window on ground floor front for door replacement
-      var isDoorPosition = meshDesc.isGroundFloor &&
-        meshDesc.unitId === "A" &&
-        wall === "north" &&
-        n === Math.floor(numWindows / 2);
+      // Skip ground-floor windows near any door position (proximity-based)
+      var isDoorPosition = false;
+      if (meshDesc.isGroundFloor && doorPositions) {
+        var windowWorldX = meshDesc.x + offset;
+        for (var di = 0; di < doorPositions.length; di++) {
+          var dp = doorPositions[di];
+          if (dp.face === wall && Math.abs(windowWorldX - dp.x) < DOOR_SKIP_RADIUS) {
+            isDoorPosition = true;
+            break;
+          }
+        }
+      }
 
       if (!isDoorPosition) {
         windowDescs.push({
@@ -628,24 +639,163 @@ function addRoofParapetsWithCoping(group, meshDesc, centerX, centerZ) {
   group.add(wcMesh);
 }
 
-function addEntryDoor(group, meshDesc, centerX, centerZ) {
+function addEntryDoors(group, doorPositions, centerX, centerZ) {
   var DOOR_W = 3.5;
   var DOOR_H = 8.0;
-  var DOOR_D = 0.5;
+  var DOOR_D = 0.3;
+  var FRAME_W = 0.5;     // jamb width
+  var FRAME_D = 0.4;     // jamb depth
+  var LINTEL_H = 0.5;    // lintel height
+  var TRANSOM_H = 1.5;   // transom glass height
+  var MULLION_H = 0.15;  // divider bar height
+  var MULLION_D = 0.2;   // divider bar depth
+
   var doorMat = getDoorMaterial();
+  var limestoneMat = getLimestoneMaterial();
+  var glassMat = getGlassMaterial();
+  var mullionMat = getMullionMaterial();
 
-  var doorGeo = new THREE.BoxGeometry(DOOR_W, DOOR_H, DOOR_D);
-  var doorMesh = new THREE.Mesh(doorGeo, doorMat);
+  for (var i = 0; i < doorPositions.length; i++) {
+    var dp = doorPositions[i];
+    var isNorth = dp.face === "north";
+    var sign = isNorth ? -1 : 1;
 
-  // Position at center of north wall, at ground level
-  doorMesh.position.set(
-    meshDesc.x + meshDesc.width / 2 - centerX,
-    meshDesc.y + DOOR_H / 2,
-    meshDesc.z - DOOR_D / 2 - centerZ
-  );
-  doorMesh.castShadow = true;
-  doorMesh.receiveShadow = true;
-  group.add(doorMesh);
+    var doorX = dp.x - centerX;
+    var doorZ = dp.z - centerZ;
+
+    // Door panel: recessed slightly from wall face
+    var panelGeo = new THREE.BoxGeometry(DOOR_W, DOOR_H, DOOR_D);
+    var panelMesh = new THREE.Mesh(panelGeo, doorMat);
+    panelMesh.position.set(
+      doorX,
+      DOOR_H / 2,
+      doorZ + sign * (DOOR_D / 2 + 0.1)
+    );
+    panelMesh.castShadow = true;
+    panelMesh.receiveShadow = true;
+    group.add(panelMesh);
+
+    // Door frame: limestone jambs + lintel (merged into one mesh)
+    var frameGeos = [];
+
+    // Left jamb
+    var leftJambGeo = new THREE.BoxGeometry(FRAME_W, DOOR_H + LINTEL_H + TRANSOM_H + MULLION_H, FRAME_D);
+    leftJambGeo.translate(
+      doorX - DOOR_W / 2 - FRAME_W / 2,
+      (DOOR_H + LINTEL_H + TRANSOM_H + MULLION_H) / 2,
+      doorZ + sign * (FRAME_D / 2)
+    );
+    frameGeos.push(leftJambGeo);
+
+    // Right jamb
+    var rightJambGeo = new THREE.BoxGeometry(FRAME_W, DOOR_H + LINTEL_H + TRANSOM_H + MULLION_H, FRAME_D);
+    rightJambGeo.translate(
+      doorX + DOOR_W / 2 + FRAME_W / 2,
+      (DOOR_H + LINTEL_H + TRANSOM_H + MULLION_H) / 2,
+      doorZ + sign * (FRAME_D / 2)
+    );
+    frameGeos.push(rightJambGeo);
+
+    // Head lintel (above transom)
+    var lintelGeo = new THREE.BoxGeometry(DOOR_W + FRAME_W * 2, LINTEL_H, FRAME_D);
+    lintelGeo.translate(
+      doorX,
+      DOOR_H + MULLION_H + TRANSOM_H + LINTEL_H / 2,
+      doorZ + sign * (FRAME_D / 2)
+    );
+    frameGeos.push(lintelGeo);
+
+    var mergedFrame = mergeGeometries(frameGeos, false);
+    var frameMesh = new THREE.Mesh(mergedFrame, limestoneMat);
+    frameMesh.castShadow = true;
+    frameMesh.receiveShadow = true;
+    group.add(frameMesh);
+    frameGeos.forEach(function (g) { g.dispose(); });
+
+    // Mullion bar: between door top and transom bottom
+    var mullionGeo = new THREE.BoxGeometry(DOOR_W, MULLION_H, MULLION_D);
+    var mullionMesh = new THREE.Mesh(mullionGeo, mullionMat);
+    mullionMesh.position.set(
+      doorX,
+      DOOR_H + MULLION_H / 2,
+      doorZ + sign * (MULLION_D / 2 + 0.05)
+    );
+    mullionMesh.castShadow = true;
+    group.add(mullionMesh);
+
+    // Transom window: glass pane above mullion
+    var transomGeo = new THREE.BoxGeometry(DOOR_W, TRANSOM_H, 0.15);
+    var transomMesh = new THREE.Mesh(transomGeo, glassMat);
+    transomMesh.position.set(
+      doorX,
+      DOOR_H + MULLION_H + TRANSOM_H / 2,
+      doorZ + sign * (0.15 / 2 + 0.05)
+    );
+    transomMesh.castShadow = false;
+    transomMesh.receiveShadow = false;
+    group.add(transomMesh);
+  }
+}
+
+// ── Door Position Computation (pure function, no Three.js dependency) ────────
+
+function computeDoorPositions(dedupedMeshes) {
+  // 1. Compute building extents from non-slab meshes
+  var minX = Infinity, maxX = -Infinity;
+  var minZ = Infinity, maxZ = -Infinity;
+  for (var i = 0; i < dedupedMeshes.length; i++) {
+    var m = dedupedMeshes[i];
+    if (m.type === "slab") continue;
+    if (m.x < minX) minX = m.x;
+    if (m.x + m.width > maxX) maxX = m.x + m.width;
+    if (m.z < minZ) minZ = m.z;
+    if (m.z + m.depth > maxZ) maxZ = m.z + m.depth;
+  }
+
+  // 2. Find ground-floor staircases
+  var groundStairs = [];
+  for (var i = 0; i < dedupedMeshes.length; i++) {
+    var m = dedupedMeshes[i];
+    if (m.type === "staircase" && m.floorLevel === 0) {
+      groundStairs.push(m);
+    }
+  }
+
+  // 3. Check which staircases touch building faces
+  // NOTE: The camera faces the south side (z=maxZ), so the "front" entry door
+  // goes on the south face. For hallway configs with a stair touching north,
+  // we add a secondary rear door on the north face.
+  var TOLERANCE = 0.5;
+  var southDoor = null;
+  var northDoor = null;
+
+  for (var i = 0; i < groundStairs.length; i++) {
+    var stair = groundStairs[i];
+    var stairCenterX = stair.x + stair.width / 2;
+
+    // Does this staircase touch the south face (z + depth = maxZ)? → front door
+    if (Math.abs((stair.z + stair.depth) - maxZ) < TOLERANCE && !southDoor) {
+      southDoor = { face: "south", x: stairCenterX, z: maxZ };
+    }
+
+    // Does this staircase touch the north face (z = minZ)? → rear door
+    if (Math.abs(stair.z - minZ) < TOLERANCE && !northDoor) {
+      northDoor = { face: "north", x: stairCenterX, z: minZ };
+    }
+  }
+
+  // 4. Default: if no staircase touches south face, place front door at building x-center on south
+  if (!southDoor) {
+    southDoor = { face: "south", x: (minX + maxX) / 2, z: maxZ };
+  }
+
+  // 5. Build result array: front (south) door always present, rear (north) door for hallway configs
+  var doors = [southDoor];
+  if (northDoor) {
+    doors.push(northDoor);
+  }
+
+  return doors;
 }
 
 function addStairIndication(group, meshDesc, centerX, centerZ) {
@@ -704,6 +854,9 @@ function buildBuildingGroup(meshData, label) {
   var centerX = (minX + maxX) / 2;
   var centerZ = (minZ + maxZ) / 2;
 
+  // Compute door positions from mesh data (before window collection for skip logic)
+  var doorPositions = computeDoorPositions(dedupedMeshes);
+
   // Phase 1: Collect window positions across all units
   var windowDescs = [];
 
@@ -753,7 +906,7 @@ function buildBuildingGroup(meshData, label) {
 
     // Collect windows (instead of adding individually)
     if (meshDesc.type === "unit" && meshDesc.windowWalls) {
-      collectWindowPositions(windowDescs, meshDesc, centerX, centerZ);
+      collectWindowPositions(windowDescs, meshDesc, centerX, centerZ, doorPositions);
     }
 
     // Cornice on top floor
@@ -771,16 +924,15 @@ function buildBuildingGroup(meshData, label) {
       addStairIndication(group, meshDesc, centerX, centerZ);
     }
 
-    // Ground floor entry door
-    if (meshDesc.type === "unit" && meshDesc.isGroundFloor && meshDesc.unitId === "A") {
-      addEntryDoor(group, meshDesc, centerX, centerZ);
-    }
   }
 
-  // Phase 3: Add instanced windows (all at once)
+  // Phase 3: Add entry doors (data-driven positions)
+  addEntryDoors(group, doorPositions, centerX, centerZ);
+
+  // Phase 4: Add instanced windows (all at once)
   addChicagoWindows(group, windowDescs, getGlassMaterial(), getLimestoneMaterial(), getMullionMaterial());
 
-  // Phase 4: Add merged belt courses
+  // Phase 5: Add merged belt courses
   addBeltCourses(group, dedupedMeshes, centerX, centerZ, getLimestoneMaterial());
 
   // CSS2D label
