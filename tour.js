@@ -22,7 +22,9 @@ function createTourSteps(config) {
   steps.push({
     id: "lot",
     title: "Here's a typical Chicago lot",
-    description: bw + " feet wide, " + bd + " feet deep. After setbacks, " + bw + "x" + bd + " feet is buildable.",
+    description: lot === "single"
+      ? "25 feet wide, 125 feet deep — the standard Chicago lot. After setbacks, " + bw + "\u00d7" + bd + " feet is buildable."
+      : "50 feet wide, 125 feet deep — a double Chicago lot. After setbacks, " + bw + "\u00d7" + bd + " feet is buildable.",
     cameraPosition: { x: 0, y: 80 * scale, z: 100 * scale },
     cameraTarget: { x: 0, y: 0, z: 0 },
     highlights: ["ground"],
