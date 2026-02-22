@@ -32,8 +32,8 @@ function createTourSteps(config) {
     // Step 2: Current code stairs
     steps.push({
       id: "current-stairs",
-      title: "Current code requires 3 stairways",
-      description: "Above the second story, each unit must access two stairways. On a standard lot, that means three shafts running the full height of the building.",
+      title: "Current code requires 2 stairways",
+      description: "Above the second story, each unit must access two stairways. On a standard lot, that means two stairway shafts plus a connecting hallway running the full height of the building.",
       cameraPosition: { x: -30 * scale, y: 40 * scale, z: 60 * scale },
       cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 },
       highlights: ["staircases-current"],
@@ -43,7 +43,7 @@ function createTourSteps(config) {
     steps.push({
       id: "current-units",
       title: "What's left for apartments",
-      description: "Two units per floor in the remaining space after three stairways and connecting hallways.",
+      description: "Two units per floor in the remaining space after two stairways and a connecting hallway.",
       cameraPosition: { x: -40 * scale, y: 25 * scale, z: 50 * scale },
       cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 },
       highlights: ["units-current"],
@@ -82,7 +82,7 @@ function createTourSteps(config) {
     steps.push({
       id: "comparison",
       title: "Same layout at 2 stories",
-      description: "The impact of reform shows up at 3+ stories, where current code requires three stairways on a standard lot.",
+      description: "The impact of reform shows up at 3+ stories, where current code requires two stairways on a standard lot.",
       cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
       cameraTarget: { x: 0, y: totalHeight / 2, z: 0 },
       highlights: ["all"],

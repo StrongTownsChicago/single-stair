@@ -2,15 +2,15 @@
 
 An interactive visualization tool for Chicago single stair building code reform. Compares current multi-staircase requirements against proposed single stair reform to show how reduced circulation space translates into larger apartments with more bedrooms.
 
-Built for [Strong Towns Chicago](https://www.strongtownschicago.org) advocacy efforts.
+Built for [Strong Towns Chicago](https://www.strongtownschicago.org) and [Abundant Housing Illinois](https://www.abundanthousingillinois.org) advocacy efforts.
 
 ## What It Shows
 
-Chicago's building code requires each unit above the second story to access two stairways. On a standard 25-foot lot, that means **three stairways per building** — consuming up to 36% of floor area. Seattle, New York, Austin, and Honolulu already allow single stair with sprinklers.
+Chicago's building code requires each unit above the second story to access two stairways. On a standard 25-foot lot, that means **two stairways per building** — consuming 25% of floor area. Seattle, New York, Austin, and Honolulu already allow single stair with sprinklers.
 
 The visualizer renders side-by-side 2D floor plans and a 3D building view comparing:
 
-- **Current Code**: 3 staircases + hallways on a single lot, 2 + hallway on a double lot
+- **Current Code**: 2 staircases + side corridor on a single lot, 2 + center hallway on a double lot
 - **Single Stair Reform**: 1 centrally placed staircase with point-access units
 
 ## Features

@@ -86,7 +86,7 @@ Module-level state (`_renderer`, `_scene`, `_camera`, `_controls`) is reused acr
 ## Staircase Rules
 
 - 2-story buildings: single stair allowed under current code (no difference between modes)
-- 3+ story, single lot, current code: 3 staircases (6 ft wide circulation column) + hallways
+- 3+ story, single lot, current code: 2 staircases + side corridor (5 ft wide)
 - 3+ story, double lot, current code: 2 staircases at ends of central hallway corridor
 - Reform (any height): 1 centered staircase with small landing vestibule
 

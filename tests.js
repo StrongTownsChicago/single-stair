@@ -93,13 +93,13 @@ if (typeof require !== "undefined") {
         cameraTarget: { x: 0, y: 0, z: 0 }, highlights: ["ground"],
       });
       if (stories > 2) {
-        steps.push({ id: "current-stairs", title: "Current code requires 3 stairways",
-          description: "Above the second story, each unit must access two stairways. On a standard lot, that means three shafts running the full height of the building.",
+        steps.push({ id: "current-stairs", title: "Current code requires 2 stairways",
+          description: "Above the second story, each unit must access two stairways. On a standard lot, that means two stairway shafts plus a connecting hallway running the full height of the building.",
           cameraPosition: { x: -30 * scale, y: 40 * scale, z: 60 * scale },
           cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["staircases-current"],
         });
         steps.push({ id: "current-units", title: "What's left for apartments",
-          description: "Two units per floor in the remaining space after three stairways and connecting hallways.",
+          description: "Two units per floor in the remaining space after two stairways and a connecting hallway.",
           cameraPosition: { x: -40 * scale, y: 25 * scale, z: 50 * scale },
           cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["units-current"],
         });
@@ -120,7 +120,7 @@ if (typeof require !== "undefined") {
           cameraTarget: { x: -(bw / 2 + bw * 0.75), y: totalHeight / 2, z: 0 }, highlights: ["staircases-current"],
         });
         steps.push({ id: "comparison", title: "Same layout at 2 stories",
-          description: "The impact of reform shows up at 3+ stories, where current code requires three stairways on a standard lot.",
+          description: "The impact of reform shows up at 3+ stories, where current code requires two stairways on a standard lot.",
           cameraPosition: { x: 0, y: 50 * scale, z: 80 * scale },
           cameraTarget: { x: 0, y: totalHeight / 2, z: 0 }, highlights: ["all"],
         });
@@ -234,18 +234,18 @@ const curr_single_3 = generateLayout({
 });
 assertEqual(
   curr_single_3.floors[0].staircases.length,
-  3,
-  "Single lot, current code, 3-story, floor 1: 3 staircases (stairs run full height)",
+  2,
+  "Single lot, current code, 3-story, floor 1: 2 staircases (stairs run full height)",
 );
 assertEqual(
   curr_single_3.floors[1].staircases.length,
-  3,
-  "Single lot, current code, 3-story, floor 2: 3 staircases (stairs run full height)",
+  2,
+  "Single lot, current code, 3-story, floor 2: 2 staircases (stairs run full height)",
 );
 assertEqual(
   curr_single_3.floors[2].staircases.length,
-  3,
-  "Single lot, current code, 3-story, floor 3: 3 staircases",
+  2,
+  "Single lot, current code, 3-story, floor 3: 2 staircases",
 );
 
 const curr_double_3 = generateLayout({
@@ -821,20 +821,14 @@ assert(
 
 // Stairs distributed front/center/rear
 const stairYs = msFloor3.staircases.map((s) => s.y).sort((a, b) => a - b);
-assertEqual(stairYs.length, 3, "Floor 3 has exactly 3 staircases");
-assertApprox(stairYs[0], 0, 1, "First staircase at front (y ≈ 0)");
+assertEqual(stairYs.length, 2, "Floor 3 has exactly 2 staircases");
+assertApprox(stairYs[0], 0, 1, "First staircase at front (y approx 0)");
 const bd = multiStairLayout.lot.buildableDepth;
 assertApprox(
   stairYs[1],
-  35,
-  5,
-  "Second staircase near center",
-);
-assertApprox(
-  stairYs[2],
   bd - 10,
   1,
-  "Third staircase at rear",
+  "Second staircase at rear",
 );
 
 // Single lot floor 3 delta >= 15% (the dramatic delta assertion)
@@ -976,9 +970,9 @@ console.log("=== 3D Scene Construction Tests ===");
 const dedup3Layout = generateLayout({ lot: "single", stories: 3, stair: "current" });
 const dedup3Meshes = buildMeshData(dedup3Layout);
 const allStairs3 = dedup3Meshes.filter(m => m.type === "staircase");
-assertEqual(allStairs3.length, 9, "Raw mesh data has 9 staircase meshes (3 per floor x 3 floors)");
+assertEqual(allStairs3.length, 6, "Raw mesh data has 6 staircase meshes (2 per floor x 3 floors)");
 const dedupedStairs3 = allStairs3.filter(m => m.floorLevel === 0);
-assertEqual(dedupedStairs3.length, 3, "Deduped: 3 unique staircase meshes");
+assertEqual(dedupedStairs3.length, 2, "Deduped: 2 unique staircase meshes");
 dedupedStairs3.forEach(m => {
   assertEqual(m.y, 0, "Deduped staircase starts at y=0");
   assertEqual(m.height, 30, "Deduped staircase spans full 3-story height (30ft)");

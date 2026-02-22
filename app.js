@@ -76,7 +76,7 @@ function render() {
     for (var u = 0; u < refFloorTemp.units.length; u++) rLiv += refFloorTemp.units[u].sqft;
     var dArea = Math.round(rLiv - cLiv);
     var dPct = cLiv > 0 ? Math.round(((rLiv - cLiv) / cLiv) * 100) : 0;
-    narrativeHeadline.innerHTML = "Three stairways consume <strong>" + dArea + " sf (+" + dPct + "%)</strong> of this floor, limiting bedrooms.";
+    narrativeHeadline.innerHTML = "Two stairways consume <strong>" + dArea + " sf (+" + dPct + "%)</strong> of this floor, limiting bedrooms.";
   } else if (currentConfig.stories <= 2) {
     narrativeHeadline.innerHTML =
       "Chicago currently allows second-story units to access a single stairway. <strong>Choose 3 or 4 stories</strong> to see what changes above the second floor.";
@@ -89,7 +89,7 @@ function render() {
     contextPanel.style.display = "";
     contextPanel.innerHTML = '<ul>' +
       '<li>Buildings with sprinklers and smoke alarms reduce fire spread beyond the room of origin from about <strong>46% to 2%</strong> (<a href="https://aiaaustin.org/wp-content/uploads/2024/10/AIA-Austin-Single-Stair_240618_Fire-Safety-Diagrams.pdf" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline; text-underline-offset: 2px;">AIA Austin fire safety analysis</a>)</li>' +
-      '<li>A building with <strong>5-8 units needs three stairways</strong> under current code, while a <strong>100+ unit tower only needs two</strong></li>' +
+      '<li>A building with <strong>5-8 units needs two stairways</strong> under current code, consuming significant floor area on narrow lots</li>' +
       '<li><a href="https://www.pew.org/en/research-and-analysis/reports/2025/02/small-single-stairway-apartment-buildings-have-strong-safety-record" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: underline; text-underline-offset: 2px;">Pew research</a> finds small single-stairway buildings have a strong safety record</li>' +
       '</ul>';
   } else {
@@ -99,7 +99,7 @@ function render() {
   // Floor note
   if (currentConfig.stories > 2) {
     floorNote.textContent =
-      "Above the second story, each unit must access two stairways, requiring three total on a standard lot";
+      "Above the second story, each unit must access two stairways, requiring two stairways on a standard lot";
   } else {
     floorNote.textContent = "";
   }

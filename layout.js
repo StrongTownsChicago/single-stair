@@ -11,7 +11,6 @@ const REAR_SETBACK = 30;
 const STAIR_W = 4;
 const STAIR_D = 10;
 const HALLWAY_W = 5;
-const MULTI_STAIR_W = 6; // Wider circulation zone for 3-staircase floors (landing + fire doors + corridors)
 
 function rectOverlapArea(a, b) {
   const overlapX = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
@@ -49,7 +48,7 @@ function generateLayout(config) {
         staircaseCount = 2;
         needsHallway = true;
       } else {
-        staircaseCount = 3;
+        staircaseCount = 2;
         needsHallway = true;
       }
     }
@@ -83,8 +82,8 @@ function generateFloor(params) {
     return generateDoubleFloor(lot, floorLevel);
   }
 
-  if (needsHallway && staircaseCount === 3) {
-    return generateMultiStairFloor(lot, floorLevel);
+  if (needsHallway && lotType === "single") {
+    return generateSingleLotHallwayFloor(lot, floorLevel);
   }
 
   return generateStandardFloor(lot, staircaseCount, floorLevel);
@@ -100,19 +99,12 @@ function generateStandardFloor(lot, staircaseCount, floorLevel) {
   const staircases = [];
   const hallways = [];
 
-  if (staircaseCount === 3) {
-    staircases.push({ x: 0, y: 0, w: STAIR_W, d: STAIR_D, type: "interior" });
-    staircases.push({ x: 0, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
-    staircases.push({ x: 0, y: bd - STAIR_D, w: STAIR_W, d: STAIR_D, type: "gangway" });
-  } else {
-    // Single stair centered at building core; small landing where unit doors open
-    const vestibuleD = 2;
-    staircases.push({ x: (bw - STAIR_W) / 2, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
-    hallways.push({ x: 0, y: halfD - vestibuleD / 2, w: bw, d: vestibuleD });
-  }
+  // Single stair centered at building core; small landing where unit doors open
+  const vestibuleD = 2;
+  staircases.push({ x: (bw - STAIR_W) / 2, y: halfD - STAIR_D / 2, w: STAIR_W, d: STAIR_D, type: "interior" });
+  hallways.push({ x: 0, y: halfD - vestibuleD / 2, w: bw, d: vestibuleD });
 
-  // Units on either side of the central landing (or at halfD if no landing)
-  const vestibuleD = hallways.length > 0 ? hallways[0].d : 0;
+  // Units on either side of the central landing
   const unitADepth = halfD - vestibuleD / 2;
   const unitBY = halfD + vestibuleD / 2;
   const unitBDepth = bd - unitBY;
@@ -247,43 +239,34 @@ function generateDoubleHallwayFloor(lot, floorLevel) {
   };
 }
 
-// Single lot with 3 staircases: wider circulation zone with hallways connecting stairs
-function generateMultiStairFloor(lot, floorLevel) {
+// Single lot with 2 staircases: side corridor with stairs at front and rear
+function generateSingleLotHallwayFloor(lot, floorLevel) {
   const bw = lot.buildableWidth;
   const bd = lot.buildableDepth;
   const halfD = bd / 2;
-  const circW = MULTI_STAIR_W;
+  const corridorW = HALLWAY_W; // 5ft side corridor
 
-  // 3 staircases distributed front/center/rear within circulation column
+  // 2 staircases at front and rear of the corridor
   const staircases = [
-    { x: 0, y: 0, w: circW, d: STAIR_D, type: "interior" },
-    { x: 0, y: STAIR_D + 25, w: circW, d: STAIR_D, type: "interior" },
-    { x: 0, y: bd - STAIR_D, w: circW, d: STAIR_D, type: "gangway" },
+    { x: 0, y: 0, w: corridorW, d: STAIR_D, type: "interior" },
+    { x: 0, y: bd - STAIR_D, w: corridorW, d: STAIR_D, type: "gangway" },
   ];
 
-  // Hallways fill the gaps between stairs in the circulation column
+  // Hallway runs between the two stairs
   const hallways = [
-    { x: 0, y: STAIR_D, w: circW, d: 25 },
-    { x: 0, y: STAIR_D + 25 + STAIR_D, w: circW, d: bd - (3 * STAIR_D) - 25 },
+    { x: 0, y: STAIR_D, w: corridorW, d: bd - 2 * STAIR_D },
   ];
 
-  // Units occupy the right portion
-  const unitW = bw - circW;
-  const unitA = { x: circW, y: 0, w: unitW, d: halfD };
-  const unitB = { x: circW, y: halfD, w: unitW, d: halfD };
+  // Units occupy the right portion (full remaining width)
+  const unitW = bw - corridorW;
+  const unitA = { x: corridorW, y: 0, w: unitW, d: halfD };
+  const unitB = { x: corridorW, y: halfD, w: unitW, d: halfD };
 
   const frontWindows = ["north"];
   const backWindows = ["south"];
 
-  // Livable area = unit rects + dead zone in circulation column allocated to units
-  const circArea = circW * bd;
-  const stairPhysicalArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
-  const hallPhysicalArea = hallways.reduce((s, h) => s + h.w * h.d, 0);
-  const deadZone = circArea - stairPhysicalArea - hallPhysicalArea;
-  const deadPerUnit = deadZone / 2;
-
-  const unitASqft = unitA.w * unitA.d + deadPerUnit;
-  const unitBSqft = unitB.w * unitB.d + deadPerUnit;
+  const unitASqft = unitA.w * unitA.d;
+  const unitBSqft = unitB.w * unitB.d;
 
   const units = [
     {
@@ -298,12 +281,15 @@ function generateMultiStairFloor(lot, floorLevel) {
     },
   ];
 
+  const stairArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
+  const hallArea = hallways.reduce((s, h) => s + h.w * h.d, 0);
+
   return {
     level: floorLevel,
     units,
     staircases,
     hallways,
-    circulationSqft: stairPhysicalArea + hallPhysicalArea,
+    circulationSqft: stairArea + hallArea,
     livableSqft: units.reduce((s, u) => s + u.sqft, 0),
   };
 }
