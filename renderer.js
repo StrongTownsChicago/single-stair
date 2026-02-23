@@ -4,17 +4,81 @@
 
 const SCALE = 5; // pixels per foot
 
+// Merge vertically-adjacent stair + corridor rects that share the same x/w into a single rect.
+// Returns {x, y, w, d} covering the combined column, or null if no obstructions found.
+function computeCombinedObstruction(hallways, staircases) {
+  const rects = [...(hallways || []), ...(staircases || [])];
+  if (rects.length === 0) return null;
+
+  // Group rects that share the same x and w (same vertical column)
+  const groups = {};
+  for (const r of rects) {
+    const key = `${r.x},${r.w}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  }
+
+  // Find the largest group (by total area) and merge into one bounding rect
+  let bestKey = null, bestArea = 0;
+  for (const key of Object.keys(groups)) {
+    const area = groups[key].reduce((s, r) => s + r.w * r.d, 0);
+    if (area > bestArea) { bestArea = area; bestKey = key; }
+  }
+  if (!bestKey) return null;
+
+  const group = groups[bestKey];
+  const minY = Math.min(...group.map(r => r.y));
+  const maxY = Math.max(...group.map(r => r.y + r.d));
+  return { x: group[0].x, y: minY, w: group[0].w, d: maxY - minY };
+}
+
 // Render dashed room partitions and labels inside a unit
-function renderRoomLayout(unit) {
+// hallways (optional): used to constrain lines/labels to the largest unobstructed strip
+function renderRoomLayout(unit, hallways, staircases) {
   const br = unit.bedrooms;
   if (br < 1) return "";
 
   let svg = "";
-  const x = unit.x;
+  let x = unit.x;
   const y = unit.y;
-  const w = unit.w;
-  const d = unit.d;
+  let w = unit.w;
+  let d = unit.d;
   const pad = 0.3;
+
+  // For full-floor ground units with a corridor, render room layout that wraps
+  // around the obstruction zone (stair + corridor column)
+  if (unit.position === "full" && (hallways || staircases)) {
+    const obstruction = computeCombinedObstruction(hallways, staircases);
+    if (obstruction) {
+      const overlapX = Math.min(x + w, obstruction.x + obstruction.w) - Math.max(x, obstruction.x);
+      const overlapY = Math.min(y + d, obstruction.y + obstruction.d) - Math.max(y, obstruction.y);
+      if (overlapX > 0 && overlapY > 0) {
+        return renderFullFloorRoomLayout(unit, obstruction, br);
+      }
+    }
+  }
+
+  // If a hallway cuts through this unit, constrain the room layout to avoid it.
+  // For regular units, narrow to the widest unobstructed strip.
+  if (hallways) {
+    for (const hall of hallways) {
+      const hx0 = hall.x, hx1 = hall.x + hall.w;
+      const hy0 = hall.y, hy1 = hall.y + hall.d;
+      const overlapX = Math.min(x + w, hx1) - Math.max(x, hx0);
+      const overlapY = Math.min(y + d, hy1) - Math.max(y, hy0);
+      if (overlapX > 0 && overlapY > 0) {
+        const leftW = Math.max(0, hx0 - x);
+        const rightW = Math.max(0, (x + w) - hx1);
+        if (leftW >= rightW && leftW > 0) {
+          w = leftW;
+        } else if (rightW > 0) {
+          x = hx1;
+          w = rightW;
+        }
+        break;
+      }
+    }
+  }
 
   // Rear units are flipped so living faces the exterior window (south)
   // and bath/entry faces the stair landing (center of building)
@@ -75,6 +139,81 @@ function renderRoomLayout(unit) {
   return svg;
 }
 
+// Render room layout for a full-floor unit that wraps around a combined obstruction
+// (stair + corridor column). The unit is C-shaped:
+//   Front section (full width, above obstruction) → Living / Kitchen
+//   Left strip (beside obstruction) → BR 1
+//   Right strip upper → BR 2 (if 2+ BR)
+//   Right strip lower → Bath
+function renderFullFloorRoomLayout(unit, obstruction, br) {
+  let svg = "";
+  const pad = 0.3;
+  const lineStroke = `stroke="#8B8680" stroke-width="0.2" stroke-dasharray="1,0.8"`;
+
+  // Obstruction bounds in layout coordinates
+  const obX0 = obstruction.x;                      // e.g. 8
+  const obX1 = obstruction.x + obstruction.w;      // e.g. 12
+  const obY0 = obstruction.y;                      // e.g. 35
+  const obY1 = obstruction.y + obstruction.d;      // e.g. 80
+
+  // Strip dimensions (in layout coords)
+  const leftW = obX0 - unit.x;                     // 8
+  const rightW = (unit.x + unit.w) - obX1;         // 8
+  const stripD = obY1 - obY0;                      // 45
+
+  // Layout coordinates for label centers
+  const leftMidX = unit.x + leftW / 2;             // 4
+  const rightMidX = obX1 + rightW / 2;             // 16
+
+  // Bath split: bottom ~30% of right strip
+  const bathFraction = 0.30;
+  const bathSplitY = obY1 - stripD * bathFraction;  // 66.5
+
+  const labelFill = "#7A756E";
+  const labelSize = Math.min(unit.d * 0.04, leftW * 0.15, 2.2);
+
+  // --- Partition lines (dashed) ---
+
+  // 1. Horizontal line at obY0 across full unit width (living / bedrooms boundary)
+  //    In SVG coords: vertical line at x=obY0, from y=unit.x to y=unit.x+unit.w
+  svg += `<line x1="${obY0}" y1="${unit.x + pad}" x2="${obY0}" y2="${unit.x + unit.w - pad}" ${lineStroke} data-type="room-line"/>`;
+
+  // 2. Horizontal line at bathSplitY in right strip only (BR 2 / Bath boundary)
+  //    In SVG coords: vertical line at x=bathSplitY, from y=obX1 to y=unit.x+unit.w
+  if (br >= 2) {
+    svg += `<line x1="${bathSplitY}" y1="${obX1 + pad}" x2="${bathSplitY}" y2="${unit.x + unit.w - pad}" ${lineStroke} data-type="room-line"/>`;
+  }
+
+  // --- Labels (SVG coords: layout y→SVG x, layout x→SVG y) ---
+
+  // Living / Kitchen: front section, full width
+  const livingCenterY = (unit.y + obY0) / 2;
+  const livingCenterX = unit.x + unit.w / 2;
+  svg += `<text x="${livingCenterY}" y="${livingCenterX}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Living / Kitchen</text>`;
+
+  // BR 1: left strip
+  if (br >= 1) {
+    const br1CenterY = (obY0 + obY1) / 2;
+    svg += `<text x="${br1CenterY}" y="${leftMidX}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">BR 1</text>`;
+  }
+
+  if (br >= 2) {
+    // BR 2: right strip upper
+    const br2CenterY = (obY0 + bathSplitY) / 2;
+    svg += `<text x="${br2CenterY}" y="${rightMidX}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">BR 2</text>`;
+
+    // Bath: right strip lower
+    const bathCenterY = (bathSplitY + obY1) / 2;
+    svg += `<text x="${bathCenterY}" y="${rightMidX}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Bath</text>`;
+  } else {
+    // 1 BR: Bath takes entire right strip
+    const bathCenterY = (obY0 + obY1) / 2;
+    svg += `<text x="${bathCenterY}" y="${rightMidX}" text-anchor="middle" dominant-baseline="middle" font-size="${labelSize.toFixed(2)}" fill="${labelFill}" font-family="'Outfit', sans-serif" data-type="room-label">Bath</text>`;
+  }
+
+  return svg;
+}
+
 // Render label inside a staircase rect (coordinates swapped)
 function renderStairLabel(stair) {
   const cx = stair.x + stair.w / 2;
@@ -93,6 +232,49 @@ function renderHallLabel(hall) {
   return `<text x="${cy}" y="${cx}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="rgba(255,255,255,0.75)" font-family="'Outfit', sans-serif" font-weight="600" letter-spacing="0.08" ${rotate} data-type="hall-label">HALL</text>`;
 }
 
+// Split a unit rect into sub-rects that don't overlap any hallway.
+// Handles a vertical corridor splitting a unit into left/right halves.
+function clipUnitAroundHallways(unit, hallways) {
+  let rects = [{ x: unit.x, y: unit.y, w: unit.w, d: unit.d }];
+  for (const hall of hallways) {
+    const next = [];
+    for (const r of rects) {
+      // Check overlap
+      const overlapX0 = Math.max(r.x, hall.x);
+      const overlapX1 = Math.min(r.x + r.w, hall.x + hall.w);
+      const overlapY0 = Math.max(r.y, hall.y);
+      const overlapY1 = Math.min(r.y + r.d, hall.y + hall.d);
+      if (overlapX0 >= overlapX1 || overlapY0 >= overlapY1) {
+        // No overlap, keep rect as-is
+        next.push(r);
+        continue;
+      }
+      // Split into up to 4 rects around the hallway (left, right, top, bottom)
+      // Left strip
+      if (r.x < hall.x) {
+        next.push({ x: r.x, y: r.y, w: hall.x - r.x, d: r.d });
+      }
+      // Right strip
+      if (r.x + r.w > hall.x + hall.w) {
+        next.push({ x: hall.x + hall.w, y: r.y, w: (r.x + r.w) - (hall.x + hall.w), d: r.d });
+      }
+      // Top strip (between left and right, above hallway)
+      const midX0 = Math.max(r.x, hall.x);
+      const midX1 = Math.min(r.x + r.w, hall.x + hall.w);
+      if (r.y < hall.y && midX1 > midX0) {
+        next.push({ x: midX0, y: r.y, w: midX1 - midX0, d: hall.y - r.y });
+      }
+      // Bottom strip (between left and right, below hallway)
+      if (r.y + r.d > hall.y + hall.d && midX1 > midX0) {
+        next.push({ x: midX0, y: hall.y + hall.d, w: midX1 - midX0, d: (r.y + r.d) - (hall.y + hall.d) });
+      }
+    }
+    rects = next;
+  }
+  // If no hallway overlapped, return original
+  return rects.length > 0 ? rects : [{ x: unit.x, y: unit.y, w: unit.w, d: unit.d }];
+}
+
 function renderFloorPlanSVG(layout, floorIndex) {
   const floor = layout.floors[floorIndex];
   const bw = layout.lot.buildableWidth;
@@ -107,9 +289,33 @@ function renderFloorPlanSVG(layout, floorIndex) {
   svg += `<rect x="0" y="0" width="${bd}" height="${bw}" fill="none" stroke="#555" stroke-width="0.5" stroke-dasharray="2,2" data-type="lot-boundary" rx="0.5"/>`;
 
   // Units (x↔y, w↔d swapped)
+  // Clip unit rects to exclude overlapping hallways (e.g. ground-floor entry corridors)
   for (const unit of floor.units) {
     const unitFill = "#EDE8DF";
-    svg += `<rect x="${unit.y}" y="${unit.x}" width="${unit.d}" height="${unit.w}" fill="${unitFill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}" rx="0.3"/>`;
+
+    if (unit.position === "full") {
+      // Full-floor unit: render as a single C-shaped SVG path to avoid internal seam lines
+      const obstruction = computeCombinedObstruction(floor.hallways, floor.staircases);
+      if (obstruction) {
+        // SVG coords: layout y→SVG x, layout x→SVG y
+        const ux = unit.y, uy = unit.x, uw = unit.d, uh = unit.w;
+        const obSvgX = obstruction.y;           // layout y → SVG x
+        const obSvgY = obstruction.x;           // layout x → SVG y
+        const obSvgW = obstruction.d;           // layout d → SVG width
+        const obSvgH = obstruction.w;           // layout w → SVG height
+        // C-shape: outer rect with notch cut out for obstruction
+        const path = `M ${ux},${uy} L ${ux + uw},${uy} L ${ux + uw},${obSvgY} L ${obSvgX + obSvgW},${obSvgY} L ${obSvgX + obSvgW},${obSvgY + obSvgH} L ${ux + uw},${obSvgY + obSvgH} L ${ux + uw},${uy + uh} L ${ux},${uy + uh} Z`;
+        svg += `<path d="${path}" fill="${unitFill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}"/>`;
+      } else {
+        // Fallback: no obstruction, render as rect
+        svg += `<rect x="${unit.y}" y="${unit.x}" width="${unit.d}" height="${unit.w}" fill="${unitFill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}" rx="0.3"/>`;
+      }
+    } else {
+      const unitRects = clipUnitAroundHallways(unit, floor.hallways);
+      for (const r of unitRects) {
+        svg += `<rect x="${r.y}" y="${r.x}" width="${r.d}" height="${r.w}" fill="${unitFill}" stroke="#4A4A55" stroke-width="0.4" data-type="unit" data-id="${unit.id}" rx="0.3"/>`;
+      }
+    }
 
     // Unit label — positioned near top edge as header (swapped coordinates)
     const cy = unit.y + unit.d / 2;
@@ -119,7 +325,7 @@ function renderFloorPlanSVG(layout, floorIndex) {
     svg += `<text x="${cy}" y="${cx}" text-anchor="middle" dominant-baseline="middle" font-size="${fontSize.toFixed(2)}" fill="#5A574F" font-family="'Outfit', sans-serif" font-weight="600" data-type="unit-label">${labelText}</text>`;
 
     // Room subdivisions
-    svg += renderRoomLayout(unit);
+    svg += renderRoomLayout(unit, floor.hallways, floor.staircases);
   }
 
   // Staircases (swapped)
@@ -181,5 +387,5 @@ function renderComparator(config, floorIndex) {
 
 // Make available globally (browser) and for Node require
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { renderFloorPlanSVG, renderComparator };
+  module.exports = { renderFloorPlanSVG, renderComparator, computeCombinedObstruction };
 }

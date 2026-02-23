@@ -64,6 +64,8 @@ function generateLayout(config) {
       floorLevel,
       staircaseCount,
       needsHallway,
+      stairMode: stair,
+      totalStories: stories,
     });
     floors.push(floor);
   }
@@ -72,13 +74,15 @@ function generateLayout(config) {
 }
 
 function generateFloor(params) {
-  const { lot, lotType, floorLevel, staircaseCount, needsHallway } = params;
+  const { lot, lotType, floorLevel, staircaseCount, needsHallway, stairMode, totalStories } = params;
+  const isReformGround = stairMode === "reform" && totalStories > 2 && floorLevel === 1;
 
   if (lotType === "double" && needsHallway) {
     return generateDoubleHallwayFloor(lot, floorLevel);
   }
 
   if (lotType === "double") {
+    if (isReformGround) return generateDoubleGroundFloor(lot, floorLevel);
     return generateDoubleFloor(lot, floorLevel);
   }
 
@@ -86,6 +90,7 @@ function generateFloor(params) {
     return generateSingleLotHallwayFloor(lot, floorLevel);
   }
 
+  if (isReformGround) return generateStandardGroundFloor(lot, staircaseCount, floorLevel);
   return generateStandardFloor(lot, staircaseCount, floorLevel);
 }
 
@@ -145,6 +150,63 @@ function generateStandardFloor(lot, staircaseCount, floorLevel) {
   };
 }
 
+// Single lot reform ground floor: single unit spanning full floor with entry corridor
+// The corridor runs from the building front (south wall) to the staircase — on a narrow
+// Chicago lot you enter from the front and walk to the stair. No full-width vestibule;
+// upper floors keep that for unit-to-unit separation.
+function generateStandardGroundFloor(lot, staircaseCount, floorLevel) {
+  const bw = lot.buildableWidth;
+  const bd = lot.buildableDepth;
+  const halfD = bd / 2;
+
+  // Single stair centered at building core
+  const stairX = (bw - STAIR_W) / 2;
+  const stairY = halfD - STAIR_D / 2;
+  const staircases = [
+    { x: stairX, y: stairY, w: STAIR_W, d: STAIR_D, type: "interior" },
+  ];
+
+  // Entry corridor: runs from stair south edge to building south wall (front entry)
+  const corridorY = stairY + STAIR_D;
+  const hallways = [
+    { x: stairX, y: corridorY, w: STAIR_W, d: bd - corridorY },
+  ];
+
+  // Single unit spanning entire floor
+  const unitRect = { x: 0, y: 0, w: bw, d: bd };
+  const windowWalls = ["north", "south"];
+
+  // Circulation = staircase + corridor (no overlap between them)
+  const stairArea = STAIR_W * STAIR_D;
+  const corridorArea = STAIR_W * (bd - corridorY);
+  const circulationArea = stairArea + corridorArea;
+  const unitSqft = bw * bd - circulationArea;
+
+  // Width-aware bedroom estimate: corridor splits the rear portion,
+  // so effective usable width is less than the full lot width
+  const effectiveWidth = bw - STAIR_W;
+  const bedroomCap = Math.max(1, Math.floor(effectiveWidth / 8));
+  const rawBedrooms = estimateBedrooms(unitSqft, windowWalls.length);
+  const bedrooms = Math.min(rawBedrooms, bedroomCap);
+
+  const units = [
+    {
+      id: "A", x: unitRect.x, y: unitRect.y, w: unitRect.w, d: unitRect.d,
+      sqft: unitSqft, bedrooms,
+      windowWalls, position: "full", type: "residential",
+    },
+  ];
+
+  return {
+    level: floorLevel,
+    units,
+    staircases,
+    hallways,
+    circulationSqft: circulationArea,
+    livableSqft: unitSqft,
+  };
+}
+
 // Double lot without hallway: 1 staircase centered, 4 full-width quadrant units
 // Stair renders on top of units where it overlaps
 function generateDoubleFloor(lot, floorLevel) {
@@ -186,6 +248,59 @@ function generateDoubleFloor(lot, floorLevel) {
     hallways: [],
     circulationSqft: stairArea,
     livableSqft: units.reduce((s, u) => s + u.sqft, 0),
+  };
+}
+
+// Double lot reform ground floor: same as double floor + entry corridor from halfD to south wall
+function generateDoubleGroundFloor(lot, floorLevel) {
+  const bw = lot.buildableWidth;
+  const bd = lot.buildableDepth;
+  const halfD = bd / 2;
+  const halfW = bw / 2;
+
+  // Center staircase on width and depth
+  const stairX = (bw - STAIR_W) / 2;
+  const stairY = halfD - STAIR_D / 2;
+  const staircases = [
+    { x: stairX, y: stairY, w: STAIR_W, d: STAIR_D, type: "interior" },
+  ];
+
+  // Entry corridor: runs from halfD to south wall
+  const hallways = [
+    { x: stairX, y: halfD, w: STAIR_W, d: bd - halfD },
+  ];
+
+  // 4 quadrant units split at bw/2
+  const quadrants = [
+    { id: "A", x: 0, y: 0, w: halfW, d: halfD, pos: "front-left", windows: ["north", "west"] },
+    { id: "B", x: halfW, y: 0, w: halfW, d: halfD, pos: "front-right", windows: ["north", "east"] },
+    { id: "C", x: 0, y: halfD, w: halfW, d: halfD, pos: "rear-left", windows: ["south", "west"] },
+    { id: "D", x: halfW, y: halfD, w: halfW, d: halfD, pos: "rear-right", windows: ["south", "east"] },
+  ];
+
+  const units = quadrants.map((q) => {
+    // Front units: deduct staircase overlap; Rear units: deduct hallway (corridor) overlap
+    const isFront = q.pos.startsWith("front");
+    const overlap = isFront
+      ? staircases.reduce((s, st) => s + rectOverlapArea(q, st), 0)
+      : hallways.reduce((s, h) => s + rectOverlapArea(q, h), 0);
+    const sqft = q.w * q.d - overlap;
+    return {
+      id: q.id, x: q.x, y: q.y, w: q.w, d: q.d,
+      sqft, bedrooms: estimateBedrooms(sqft, q.windows.length),
+      windowWalls: q.windows, position: q.pos, type: "residential",
+    };
+  });
+
+  const livableSqft = units.reduce((s, u) => s + u.sqft, 0);
+
+  return {
+    level: floorLevel,
+    units,
+    staircases,
+    hallways,
+    circulationSqft: bw * bd - livableSqft,
+    livableSqft,
   };
 }
 
