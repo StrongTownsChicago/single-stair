@@ -10,6 +10,7 @@ if (typeof require !== "undefined") {
     const _renderer = require("./renderer.js");
     if (_renderer.renderFloorPlanSVG) globalThis.renderFloorPlanSVG = _renderer.renderFloorPlanSVG;
     if (_renderer.renderComparator) globalThis.renderComparator = _renderer.renderComparator;
+    if (_renderer.computeCombinedObstruction) globalThis.computeCombinedObstruction = _renderer.computeCombinedObstruction;
   } catch (e) {}
   try {
     const _stats = require("./stats.js");
@@ -548,6 +549,66 @@ assert(
   comparatorStr.includes("delta-callout"),
   "Delta callout exists between plans",
 );
+
+// --- Reform ground floor C-shaped unit rendering ---
+
+// Reform single lot 3-story, floor 0: full-floor unit renders as path, not rects
+{
+  const reformLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  const gfSvg = renderFloorPlanSVG(reformLayout, 0);
+
+  // Full-floor unit should render as a <path> element, not <rect>
+  const pathCount = (gfSvg.match(/data-type="unit"[^>]*\/?>/g) || []).filter(m => m.includes("<path") || gfSvg.includes("<path")).length;
+  assert(gfSvg.includes('<path') && gfSvg.includes('data-type="unit"'), "Reform ground floor: unit rendered as SVG path (C-shape)");
+
+  // Should have exactly 1 unit element (the C-shaped path)
+  const unitElements = (gfSvg.match(/data-type="unit"/g) || []).length;
+  assertEqual(unitElements, 1, "Reform ground floor: exactly 1 unit element");
+
+  // Should still have unit label, staircase, and hallway
+  assert(gfSvg.includes('data-type="unit-label"'), "Reform ground floor: has unit label");
+  assert(gfSvg.includes('data-type="staircase"'), "Reform ground floor: has staircase");
+  assert(gfSvg.includes('data-type="hallway"'), "Reform ground floor: has hallway");
+
+  // Room labels should be present
+  assert(gfSvg.includes("Living / Kitchen"), "Reform ground floor: has Living/Kitchen label");
+  assert(gfSvg.includes("BR 1"), "Reform ground floor: has BR 1 label");
+  assert(gfSvg.includes("BR 2"), "Reform ground floor: has BR 2 label");
+  assert(gfSvg.includes("Bath"), "Reform ground floor: has Bath label");
+
+  // Should NOT have internal seam lines (the old bug: multiple rects with visible borders)
+  const unitRectCount = (gfSvg.match(/<rect[^>]*data-type="unit"/g) || []).length;
+  assertEqual(unitRectCount, 0, "Reform ground floor: no rect-based unit elements (uses path instead)");
+}
+
+// Upper floors of reform should still use rect-based rendering (no path)
+{
+  const reformLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  const f2Svg = renderFloorPlanSVG(reformLayout, 1);
+  const f2UnitRects = (f2Svg.match(/<rect[^>]*data-type="unit"/g) || []).length;
+  assertEqual(f2UnitRects, reformLayout.floors[1].units.length, "Reform upper floor: units rendered as rects");
+  const f2Paths = (f2Svg.match(/<path[^>]*data-type="unit"/g) || []).length;
+  assertEqual(f2Paths, 0, "Reform upper floor: no path-based unit elements");
+}
+
+// --- computeCombinedObstruction tests ---
+
+{
+  // Stair + corridor with same x/w should merge
+  const hallways = [{ x: 8, y: 45, w: 4, d: 35 }];
+  const staircases = [{ x: 8, y: 35, w: 4, d: 10 }];
+  const ob = computeCombinedObstruction(hallways, staircases);
+  assertEqual(ob.x, 8, "Combined obstruction x");
+  assertEqual(ob.y, 35, "Combined obstruction y");
+  assertEqual(ob.w, 4, "Combined obstruction w");
+  assertEqual(ob.d, 45, "Combined obstruction d (10 + 35)");
+}
+
+{
+  // No rects → null
+  const ob = computeCombinedObstruction([], []);
+  assertEqual(ob, null, "No rects: returns null");
+}
 
 // =============================================================
 // 1.3 — Stats Dashboard Tests
