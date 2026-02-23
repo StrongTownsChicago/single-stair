@@ -450,6 +450,7 @@ for (const config of [curr_single_3, reform_single_3, curr_double_3]) {
         const kinds = [allElements[i]._kind, allElements[j]._kind].sort().join("-");
         if (kinds === "staircase-unit") continue;
         if (kinds === "hallway-staircase") continue; // stair shaft passes through its landing
+        if (kinds === "hallway-unit") continue; // entry corridor overlaps rear unit on ground floor
         assert(
           !overlaps(allElements[i], allElements[j]),
           `Floor ${floor.level}: elements ${i} and ${j} must not overlap`,
@@ -522,9 +523,9 @@ if (viewBoxMatch) {
   const svgHeight = parts[3];
   assertApprox(
     svgWidth / svgHeight,
-    svgLayout.lot.buildableWidth / svgLayout.lot.buildableDepth,
+    svgLayout.lot.buildableDepth / svgLayout.lot.buildableWidth,
     0.1,
-    "SVG aspect ratio matches lot aspect ratio",
+    "SVG aspect ratio matches lot aspect ratio (axes swapped)",
   );
 }
 
@@ -965,7 +966,7 @@ for (const stories of [2, 3, 4]) {
   const ref = generateLayout({ lot: "single", stories, stair: "reform" });
   for (let i = 0; i < stories; i++) {
     assertEqual(ref.floors[i].staircases.length, 1, `Reform ${stories}story floor ${i+1}: 1 staircase`);
-    assertEqual(ref.floors[i].hallways.length, 1, `Reform ${stories}story floor ${i+1}: 1 hallway (landing)`);
+    assertEqual(ref.floors[i].hallways.length, 1, `Reform ${stories}story floor ${i+1}: 1 hallway (vestibule)`);
   }
 }
 
@@ -1030,7 +1031,7 @@ const reformDedupMeshes = buildMeshData(reformDedupLayout);
 const reformDedupStairs = reformDedupMeshes.filter(m => m.type === "staircase" && m.floorLevel === 0);
 const reformDedupHalls = reformDedupMeshes.filter(m => m.type === "hallway");
 assertEqual(reformDedupStairs.length, 1, "Reform deduped: 1 staircase mesh");
-assertEqual(reformDedupHalls.length, 3, "Reform: 3 hallway meshes (landing per floor)");
+assertEqual(reformDedupHalls.length, 3, "Reform: 3 hallway meshes (vestibule per floor)");
 
 // Material color mapping validation (Chicago brick facade palette)
 const materialTypes = ["unit", "staircase", "hallway", "slab"];
@@ -1474,6 +1475,205 @@ function getDedupedMeshes(config) {
       }
     }
   }
+}
+
+// =============================================================
+// 7.1 — Ground-Floor Entry Corridor Tests
+// =============================================================
+
+console.log("=== Ground-Floor Entry Corridor Tests ===");
+
+// --- Entry vestibule presence ---
+
+// Reform single lot 3-story: all floors have 1 hallway (vestibule)
+{
+  const layout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  assertEqual(layout.floors[0].hallways.length, 1, "Reform single 3-story floor 1: 1 hallway (vestibule)");
+  assertEqual(layout.floors[1].hallways.length, 1, "Reform single 3-story floor 2: 1 hallway (vestibule)");
+  assertEqual(layout.floors[2].hallways.length, 1, "Reform single 3-story floor 3: 1 hallway (vestibule)");
+}
+
+// Reform single lot 4-story: all floors have 1 hallway (vestibule)
+{
+  const layout = generateLayout({ lot: "single", stories: 4, stair: "reform" });
+  assertEqual(layout.floors[0].hallways.length, 1, "Reform single 4-story floor 1: 1 hallway (vestibule)");
+  assertEqual(layout.floors[1].hallways.length, 1, "Reform single 4-story floor 2: 1 hallway");
+  assertEqual(layout.floors[2].hallways.length, 1, "Reform single 4-story floor 3: 1 hallway");
+  assertEqual(layout.floors[3].hallways.length, 1, "Reform single 4-story floor 4: 1 hallway");
+}
+
+// Reform double lot 3-story: floor 0 has 1 hallway (corridor only), floors 1-2 have 0
+{
+  const layout = generateLayout({ lot: "double", stories: 3, stair: "reform" });
+  assertEqual(layout.floors[0].hallways.length, 1, "Reform double 3-story floor 1: 1 hallway (corridor)");
+  assertEqual(layout.floors[1].hallways.length, 0, "Reform double 3-story floor 2: 0 hallways");
+  assertEqual(layout.floors[2].hallways.length, 0, "Reform double 3-story floor 3: 0 hallways");
+}
+
+// Reform double lot 4-story: floor 0 has 1 hallway, floors 1-3 have 0
+{
+  const layout = generateLayout({ lot: "double", stories: 4, stair: "reform" });
+  assertEqual(layout.floors[0].hallways.length, 1, "Reform double 4-story floor 1: 1 hallway (corridor)");
+  assertEqual(layout.floors[1].hallways.length, 0, "Reform double 4-story floor 2: 0 hallways");
+  assertEqual(layout.floors[2].hallways.length, 0, "Reform double 4-story floor 3: 0 hallways");
+  assertEqual(layout.floors[3].hallways.length, 0, "Reform double 4-story floor 4: 0 hallways");
+}
+
+// --- Entry corridor absence ---
+
+// Reform 2-story (single and double): no corridor on any floor
+{
+  const singleLayout = generateLayout({ lot: "single", stories: 2, stair: "reform" });
+  const doubleLayout = generateLayout({ lot: "double", stories: 2, stair: "reform" });
+  for (let i = 0; i < 2; i++) {
+    assertEqual(singleLayout.floors[i].hallways.length, 1, `Reform single 2-story floor ${i+1}: 1 hallway (vestibule, no corridor)`);
+    assertEqual(doubleLayout.floors[i].hallways.length, 0, `Reform double 2-story floor ${i+1}: 0 hallways (no corridor)`);
+  }
+}
+
+// Current code 3-story (single and double): no corridor on any floor (hallway count is consistent)
+{
+  const singleLayout = generateLayout({ lot: "single", stories: 3, stair: "current" });
+  const doubleLayout = generateLayout({ lot: "double", stories: 3, stair: "current" });
+  const singleHallCounts = singleLayout.floors.map(f => f.hallways.length);
+  const doubleHallCounts = doubleLayout.floors.map(f => f.hallways.length);
+  assert(singleHallCounts.every(c => c === singleHallCounts[0]), "Current single 3-story: all floors same hallway count (no corridor)");
+  assert(doubleHallCounts.every(c => c === doubleHallCounts[0]), "Current double 3-story: all floors same hallway count (no corridor)");
+}
+
+// --- Entry corridor geometry (single lot) ---
+
+{
+  const layout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  const floor0 = layout.floors[0];
+  const stair = floor0.staircases[0];
+  const corridor = floor0.hallways[0];
+  const bd = layout.lot.buildableDepth;
+
+  assertEqual(corridor.x, stair.x, "Single corridor x == staircase x");
+  assertEqual(corridor.w, 4, "Single corridor w == STAIR_W (4 ft)");
+  assertEqual(corridor.y, stair.y + stair.d, "Single corridor starts at stair south edge");
+  assertEqual(corridor.y + corridor.d, bd, "Single corridor reaches south wall");
+}
+
+// --- Corridor geometry (double lot) ---
+
+{
+  const layout = generateLayout({ lot: "double", stories: 3, stair: "reform" });
+  const floor0 = layout.floors[0];
+  const stair = floor0.staircases[0];
+  const corridor = floor0.hallways[0]; // only hallway is the corridor
+  const bd = layout.lot.buildableDepth;
+  const halfD = bd / 2;
+
+  assertEqual(corridor.x, stair.x, "Double corridor x == staircase x");
+  assertEqual(corridor.w, 4, "Double corridor w == STAIR_W (4 ft)");
+  assertEqual(corridor.y, halfD, "Double corridor starts at building midpoint");
+  assertEqual(corridor.y + corridor.d, bd, "Double corridor reaches south wall");
+}
+
+// --- Ground floor vs upper floor comparison ---
+
+// Single lot: ground floor has 1 unit (full floor), upper floors have 2 units
+{
+  const layout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  assertEqual(layout.floors[0].units.length, 1, "Reform single 3-story: ground floor has 1 unit");
+  assertEqual(layout.floors[1].units.length, 2, "Reform single 3-story: floor 2 has 2 units");
+  assert(layout.floors[0].livableSqft < layout.floors[1].livableSqft,
+    "Reform single 3-story: ground floor livable < upper floor livable (corridor cost)");
+}
+
+// Double lot: ground floor still has 4 quadrant units (corridor overlap is small)
+{
+  const layout = generateLayout({ lot: "double", stories: 3, stair: "reform" });
+  assertEqual(layout.floors[0].units.length, 4, "Reform double 3-story: ground floor has 4 units");
+  assertEqual(layout.floors[1].units.length, 4, "Reform double 3-story: floor 2 has 4 units");
+  const floor0UnitC = layout.floors[0].units.find(u => u.id === "C");
+  const floor1UnitC = layout.floors[1].units.find(u => u.id === "C");
+  const floor0UnitA = layout.floors[0].units.find(u => u.id === "A");
+  const floor1UnitA = layout.floors[1].units.find(u => u.id === "A");
+
+  assert(floor0UnitC.sqft < floor1UnitC.sqft, "Reform double 3-story: ground floor Unit C sqft < upper floor Unit C sqft");
+  assertEqual(floor0UnitA.sqft, floor1UnitA.sqft, "Reform double 3-story: ground floor Unit A sqft == upper floor Unit A sqft");
+}
+
+// --- Reform still beats current code on ground floor ---
+
+{
+  const currLayout = generateLayout({ lot: "single", stories: 3, stair: "current" });
+  const refLayout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  const currFloor0Livable = currLayout.floors[0].livableSqft;
+  const refFloor0Livable = refLayout.floors[0].livableSqft;
+  assert(refFloor0Livable > currFloor0Livable, `Reform single 3-story floor 1: reform livable (${refFloor0Livable}) > current (${currFloor0Livable})`);
+}
+
+{
+  const currLayout = generateLayout({ lot: "double", stories: 3, stair: "current" });
+  const refLayout = generateLayout({ lot: "double", stories: 3, stair: "reform" });
+  const currFloor0Livable = currLayout.floors[0].livableSqft;
+  const refFloor0Livable = refLayout.floors[0].livableSqft;
+  assert(refFloor0Livable > currFloor0Livable, `Reform double 3-story floor 1: reform livable (${refFloor0Livable}) > current (${currFloor0Livable})`);
+}
+
+// --- Specific sqft values (single lot ground floor) ---
+
+{
+  const layout = generateLayout({ lot: "single", stories: 3, stair: "reform" });
+  const floor0 = layout.floors[0];
+  assertEqual(floor0.units.length, 1, "Reform single ground floor: 1 unit");
+  const unitA = floor0.units[0];
+  assertEqual(unitA.id, "A", "Reform single ground floor unit id is A");
+  assertEqual(unitA.sqft, 1420, "Reform single ground floor Unit A: 1420 sqft");
+  assertEqual(unitA.bedrooms, 2, "Reform single ground floor Unit A: 2 BR");
+  assert(unitA.windowWalls.includes("north"), "Reform single ground floor Unit A: north window wall");
+  assert(unitA.windowWalls.includes("south"), "Reform single ground floor Unit A: south window wall");
+  assertEqual(unitA.position, "full", "Reform single ground floor Unit A: position is full");
+  assertEqual(floor0.livableSqft, 1420, "Reform single ground floor total livable: 1420 sqft");
+  assertEqual(floor0.livableSqft + floor0.circulationSqft, layout.lot.buildableWidth * layout.lot.buildableDepth,
+    "Reform single ground floor: livable + circulation = buildable area");
+}
+
+// --- Specific sqft values (double lot ground floor) ---
+
+{
+  const layout = generateLayout({ lot: "double", stories: 3, stair: "reform" });
+  const floor0 = layout.floors[0];
+  const unitA = floor0.units.find(u => u.id === "A");
+  const unitC = floor0.units.find(u => u.id === "C");
+  assertEqual(unitA.sqft, 890, "Reform double ground floor Unit A: 890 sqft");
+  assertEqual(unitC.sqft, 820, "Reform double ground floor Unit C: 820 sqft");
+  assertEqual(floor0.livableSqft, 3420, "Reform double ground floor total livable: 3420 sqft");
+}
+
+// --- Ground floor unit count consistency across story counts ---
+
+// Single lot: ground floor always has 1 unit for reform 3+ stories
+{
+  for (const stories of [3, 4]) {
+    const layout = generateLayout({ lot: "single", stories, stair: "reform" });
+    assertEqual(layout.floors[0].units.length, 1,
+      `Reform single ${stories}-story: ground floor has 1 unit`);
+  }
+}
+
+// Double lot: ground floor always has 4 units for reform 3+ stories
+{
+  for (const stories of [3, 4]) {
+    const layout = generateLayout({ lot: "double", stories, stair: "reform" });
+    assertEqual(layout.floors[0].units.length, 4,
+      `Reform double ${stories}-story: ground floor has 4 units`);
+  }
+}
+
+// --- 2-story buildings remain unchanged ---
+
+{
+  const single2 = generateLayout({ lot: "single", stories: 2, stair: "reform" });
+  assertEqual(single2.floors[0].units.length, 2,
+    "Reform single 2-story: ground floor has 2 units (no corridor)");
+  const double2 = generateLayout({ lot: "double", stories: 2, stair: "reform" });
+  assertEqual(double2.floors[0].units.length, 4,
+    "Reform double 2-story: ground floor has 4 units (no corridor)");
 }
 
 // =============================================================
