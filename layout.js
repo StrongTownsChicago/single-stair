@@ -87,6 +87,7 @@ function generateFloor(params) {
   }
 
   if (needsHallway && lotType === "single") {
+    if (floorLevel === 1) return generateSingleLotHallwayGroundFloor(lot, floorLevel);
     return generateSingleLotHallwayFloor(lot, floorLevel);
   }
 
@@ -393,6 +394,54 @@ function generateSingleLotHallwayFloor(lot, floorLevel) {
       id: "B", x: unitB.x, y: unitB.y, w: unitB.w, d: unitB.d,
       sqft: unitBSqft, bedrooms: estimateBedrooms(unitBSqft, backWindows.length),
       windowWalls: backWindows, position: "rear", type: "residential",
+    },
+  ];
+
+  const stairArea = staircases.reduce((s, st) => s + st.w * st.d, 0);
+  const hallArea = hallways.reduce((s, h) => s + h.w * h.d, 0);
+
+  return {
+    level: floorLevel,
+    units,
+    staircases,
+    hallways,
+    circulationSqft: stairArea + hallArea,
+    livableSqft: units.reduce((s, u) => s + u.sqft, 0),
+  };
+}
+
+// Single lot ground floor with 2 staircases: single unit beside the side corridor
+// Same circulation layout as upper floors (stair shafts run full height), but one
+// unit spanning the full depth instead of front/rear split — fairer comparison with reform.
+function generateSingleLotHallwayGroundFloor(lot, floorLevel) {
+  const bw = lot.buildableWidth;
+  const bd = lot.buildableDepth;
+  const corridorW = HALLWAY_W; // 5ft side corridor
+
+  // Same staircase + hallway layout as upper floors (shafts run full height)
+  const staircases = [
+    { x: 0, y: 0, w: corridorW, d: STAIR_D, type: "interior" },
+    { x: 0, y: bd - STAIR_D, w: corridorW, d: STAIR_D, type: "gangway" },
+  ];
+
+  const hallways = [
+    { x: 0, y: STAIR_D, w: corridorW, d: bd - 2 * STAIR_D },
+  ];
+
+  // Single unit occupying the full right portion beside the corridor
+  const unitW = bw - corridorW;
+  const unitSqft = unitW * bd;
+  const windowWalls = ["north", "south"];
+
+  // Width-based bedroom cap: 15ft-wide unit can fit ~2 bedrooms side-by-side
+  const bedroomCap = Math.max(1, Math.floor(unitW / 7));
+  const bedrooms = Math.min(estimateBedrooms(unitSqft, windowWalls.length), bedroomCap);
+
+  const units = [
+    {
+      id: "A", x: corridorW, y: 0, w: unitW, d: bd,
+      sqft: unitSqft, bedrooms,
+      windowWalls, position: "front", type: "residential",
     },
   ];
 
